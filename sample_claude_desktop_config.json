@@ -1,0 +1,10 @@
+{
+  "mcpServers": {
+    "personal-knowledge-base": {
+      "command": "{your-full-project-folderpath}/.venv/Scripts/python.exe",
+      "args": [
+        "{your-full-project-folderpath}/server.py"
+      ]
+    }
+  }
+}
