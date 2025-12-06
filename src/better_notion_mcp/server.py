@@ -18,11 +18,39 @@ mcp = FastMCP("Personal Knowledge Base")
 # Initialize Notion Client
 notion = Client(auth=os.getenv("NOTION_API_KEY"))
 
+import platform
+
 # Database Initialization
-DB_PATH = "agent_memory.db"
+def get_default_db_path() -> Path:
+    system = platform.system()
+    home = Path.home()
+
+    if system == "Windows":
+        base_path = home / ".personal-knowledge-base" / "data"
+    elif system == "Darwin":  # macOS
+        base_path = home / "Library" / ".personal-knowledge-base" / "data"
+    else:  # Linux/Unix
+        base_path = home / ".personal-knowledge-base" / "data"
+
+    return base_path / "agent_memory.db"
+
+# Get DB_PATH from env or usage defaults
+env_db_path = os.getenv("AGENT_MEMORY_PATH")
+if env_db_path:
+    DB_PATH = Path(env_db_path)
+else:
+    DB_PATH = get_default_db_path()
+
+# Ensure directory exists
+try:
+    DB_PATH.parent.mkdir(parents=True, exist_ok=True)
+except Exception as e:
+    print(f"Warning: Could not create database directory {DB_PATH.parent}: {e}")
+    # Fallback to local directory if permission denied
+    DB_PATH = Path("agent_memory.db")
 
 def init_db():
-    conn = sqlite3.connect(DB_PATH)
+    conn = sqlite3.connect(str(DB_PATH))
     c = conn.cursor()
     c.execute('''CREATE TABLE IF NOT EXISTS facts
                  (id INTEGER PRIMARY KEY AUTOINCREMENT, content TEXT)''')

@@ -1,0 +1,20 @@
+[project]
+name = "better-notion-mcp"
+version = "0.1.0"
+description = "A better Notion integration for AI agents"
+dependencies = [
+    "mcp[fastmcp]",
+    "notion-client",
+    "python-dotenv"
+]
+authors = [
+  { name = "Shubham Omar", email = "shubhamomar53@gmail.com" },
+]
+readme = "README.md"
+license = { text = "MIT" }
+urls = { Repository = "https://github.com/shubhamomar/better-notion-mcp" }
+scripts = { "better-notion-mcp" = "better_notion_mcp.server:mcp.run" }
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
