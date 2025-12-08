@@ -2,8 +2,6 @@
 
 A powerful Model Context Protocol (MCP) server that connects your AI agents (Claude, Cursor, etc.) directly to your Notion workspace.
 
-
-
 ## Introduction
 
 **better-notion-mcp** turns your Notion workspace into a semantic long-term memory and functional toolset for AI. Instead of just reading pages, it allows your agent to:
@@ -12,24 +10,62 @@ A powerful Model Context Protocol (MCP) server that connects your AI agents (Cla
 - **Create & Edit** pages with rich content (markdown, tables, mermaid, code).
 - **Notify** you via Telegram when important updates happen.
 
-## Features
+## Prerequisites
 
-- 🔌 **Standard MCP Support**: Seamless integration with Claude Desktop, Cursor, and any MCP-compatible client.
-- 🧱 **Rich Block Support**: Create and edit paragraphs, headings, code blocks, tables, and lists.
-- 🧠 **Dual Memory**: Combines Notion's structured storage with a fast, local SQLite "agent memory" for facts.
-- 🔔 **Real-time Alerts**: Optional Telegram integration for push notifications from your agent.
-- 🌍 **Cross-Platform**: Configurable for Mac, Windows, and Linux.
+Before using this tool, ensure you have the following installed:
+
+1.  **Python 3.10 or higher**: [Download here](https://www.python.org/downloads/).
+2.  **pipx** (Recommended): A tool to run Python applications in isolated environments.
+    *   **Windows**: `winget install pipx` (or `pip install pipx` then `pipx ensurepath`)
+    *   **macOS**: `brew install pipx`
+    *   **Linux**: `sudo apt install pipx`
+    *   *(Alternatively, you can use `uv` directly)*.
 
 ## Configuration
 
-### 1. Prerequisites
-- **Notion Token**: [My Integrations](https://www.notion.so/my-integrations) -> New Integration -> Copy Secret.
-- **Page ID**: Copy ID from the URL of your root page -> Connect page to your integration.
+You need to set up your credentials before configuring the MCP client.
 
-### 2. Add to Claude Desktop / Cursor
-Add the following to your `claude_desktop_config.json` (Claude) or `mcp.json` (VS Code/Cursor).
+### 1. Notion Setup
+*   **Integration Token**: Go to [Notion My Integrations](https://www.notion.so/my-integrations) -> New Integration -> Copy the "Internal Integration Secret".
+*   **Page ID**: Open the Notion page you want to use as the root. Copy the alphanumeric ID from the URL. **Don't forget to connect this page to your specific integration**.
 
-**Using `uvx` (Fastest, no install needed)**
+### 2. Environment Variables
+
+| Variable | Description | Default / Note | Required |
+| :--- | :--- | :--- | :---: |
+| `NOTION_API_KEY` | Your Notion Integration Secret. | - | ✅ |
+| `NOTION_PAGE_ID` | The ID of the root page for creating/listing content. | - | ✅ |
+| `TELEGRAM_BOT_TOKEN` | Token from @BotFather for alerts. | Optional | ❌ |
+| `TELEGRAM_CHAT_ID` | Your Chat ID for receiving alerts. | Optional | ❌ |
+| `AGENT_MEMORY_PATH` | Path to the local SQLite DB. | **Win**: `C:\Users\<User>\.personal-knowledge-base\data\`<br>**Mac**: `~/Library/.personal-knowledge-base/data/` | ❌ |
+
+## Client Setup
+
+Add the following to your MCP client configuration (e.g., `claude_desktop_config.json` for Claude Desktop).
+
+### Using `pipx` (Recommended)
+
+This method downloads and runs the latest version automatically.
+
+```json
+{
+  "mcpServers": {
+    "notion": {
+      "command": "pipx",
+      "args": ["run", "better-notion-mcp"],
+      "env": {
+        "NOTION_API_KEY": "secret_...",
+        "NOTION_PAGE_ID": "page_id_...",
+        "TELEGRAM_BOT_TOKEN": "bot_token_...",
+        "...": "..."
+      }
+    }
+  }
+}
+```
+
+### Using `uv`
+
 ```json
 {
   "mcpServers": {
@@ -40,87 +76,28 @@ Add the following to your `claude_desktop_config.json` (Claude) or `mcp.json` (V
         "NOTION_API_KEY": "secret_...",
         "NOTION_PAGE_ID": "page_id_...",
         "TELEGRAM_BOT_TOKEN": "bot_token_...",
-        "TELEGRAM_CHAT_ID": "chat_id_...",
-        "AGENT_MEMORY_PATH": "/path/to/db"
+        "...": "..."
       }
     }
   }
 }
 ```
 
-**Using `pipx` (Alternative)**
-```json
-{
-  "mcpServers": {
-    "notion": {
-      "command": "pipx",
-      "args": ["run", "better-notion-mcp"],
-      "env": {
-        "NOTION_API_KEY": "..."
-      }
-    }
-  }
-}
-```
+## Features & Tools
 
-> **Note**: You can also `pip install better-notion-mcp` globally if you prefer, then just use `better-notion-mcp` as the command.
+Here is a detailed list of capabilities `better-notion-mcp` provides to your agent.
 
-## Tools
-
-The server exposes the following tools to your AI agent:
-
-<details>
-<summary>📚 <strong>Page Management</strong></summary>
-
-- **`create_page(title, content)`**
-    - Creates a new sub-page under your configured root page.
-    - *Args*: `title` (str), `content` (str, optional)
-
-- **`list_sub_pages(parent_id)`**
-    - Lists all sub-pages for a given page ID (or root).
-    - *Args*: `parent_id` (str, optional)
-
-- **`read_page_content(page_id)`**
-    - extraction of page content as simplified Markdown.
-    - *Args*: `page_id` (str)
-
-</details>
-
-<details>
-<summary>✍️ <strong>Content Editing</strong></summary>
-
-- **`update_page(page_id, title, content, type, language)`**
-    - Appends new blocks to a page.
-    - *Args*:
-        - `type`: 'paragraph', 'bulleted_list_item', 'code', 'table'
-        - `language`: for code blocks (e.g. 'python', 'mermaid')
-
-- **`log_to_notion(title, content)`**
-    - Quick-create wrapper to append daily logs/notes to the root page.
-
-</details>
-
-<details>
-<summary>🧠 <strong>Memory & Search</strong></summary>
-
-- **`remember_fact(fact)`**
-    - Stores a snippet in the local vector-like SQL store.
-
-- **`search_memory(query)`**
-    - Semantic-like search over stored facts.
-
-- **`get_recent_memories(limit)`**
-    - Retrieves the latest N stored facts.
-
-</details>
-
-<details>
-<summary>🔔 <strong>Utilities</strong></summary>
-
-- **`send_alert(message)`**
-    - Sends a push notification to your configured Telegram chat.
-
-</details>
+| Feature Category | Tool Name | Description | Arguments |
+| :--- | :--- | :--- | :--- |
+| **Page Management** | `create_page` | Create a new sub-page under your root page. | `title` (str), `content` (str) |
+| | `list_sub_pages` | List all child pages of a specific page. | `parent_id` (str, optional) |
+| | `read_page_content` | Read and parse the content of a page as Markdown. | `page_id` (str) |
+| **Content Editing** | `update_page` | Append rich content (paragraphs, code, tables) to a page. | `page_id` (str), `title` (str), `content` (str), `type` (str), `language` (str) |
+| | `log_to_notion` | Fast way to append a daily log/note to the root page. | `title` (str), `content` (str) |
+| **Memory** | `remember_fact` | Store a text snippet in the local SQLite database. | `fact` (str) |
+| | `search_memory` | Semantic search over stored facts. | `query` (str) |
+| | `get_recent_memories` | Retrieve the most recent facts. | `limit` (int) |
+| **Utilities** | `send_alert` | Send a push notification via Telegram. | `message` (str) |
 
 <details>
 <summary><strong>Development</strong></summary>
