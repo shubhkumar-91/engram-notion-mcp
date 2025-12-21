@@ -1,0 +1,44 @@
+name: Prepare Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      version_type:
+        description: 'Version bump type (major | minor | patch)'
+        required: true
+        default: 'patch'
+        type: choice
+        options:
+        - patch
+        - minor
+        - major
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.PAT }} # Requires a PAT to push changes/tags back to protected branches
+          fetch-depth: 0
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Configure Git User
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: Bump Version & Sync
+        working-directory: ./node
+        run: |
+          # This runs npm version, which triggers the 'version' script in package.json
+          # The 'version' script runs sync-version.js and git adds the python file.
+          # We use a custom message format requested by the user.
+          npm version ${{ inputs.version_type }} -m "[skip ci] [npm-auto-versioning] new released version v%s"
+
+      - name: Push Changes
+        run: git push origin HEAD:master --tags

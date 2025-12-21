@@ -307,7 +307,7 @@ const tools = {
 
 const server = new Server(
   {
-    name: "engram-mcp",
+    name: "engram-notion-mcp",
     version: "0.1.0",
   },
   {
