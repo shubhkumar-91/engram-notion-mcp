@@ -35,6 +35,47 @@
 
 ---
 
+## ✅ Prerequisites
+
+Before using this tool, ensure you have **Python 3.10 or higher** installed.
+
+<details>
+<summary><strong>Installing uv (Recommended)</strong></summary>
+
+We recommend using **uv** for the best experience.
+To install uv on macOS, Linux, or WSL, run:
+
+```bash
+curl -LsSf https://astral.sh/uv/install.sh | sh
+```
+
+For Windows, use PowerShell:
+```powershell
+powershell -ExecutionPolicy ByPass -c "irm https://astral.sh/uv/install.ps1 | iex"
+```
+
+[Learn more at https://docs.astral.sh/uv/](https://docs.astral.sh/uv/)
+</details>
+
+<details>
+<summary><strong>Installing pipx (Alternative)</strong></summary>
+
+If you prefer `pipx`, install it using these universal commands (works on Windows, Mac, and Linux):
+
+```bash
+# 1. Install pipx (user scope)
+python3 -m pip install --user pipx
+
+# 2. Add to PATH
+python3 -m pipx ensurepath
+
+# 3. Verify
+pipx --version
+```
+</details>
+
+---
+
 ## 🛠 Configuration
 
 To use Engram Notion MCP, you need to set up your environment variables.

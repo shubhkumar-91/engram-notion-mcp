@@ -35,6 +35,29 @@
 
 ---
 
+## ✅ Prerequisites
+
+Before using this tool, ensure you have **Bun** installed.
+
+<details>
+<summary><strong>Installing Bun</strong></summary>
+
+To install Bun on macOS, Linux, or WSL, run:
+
+```bash
+curl -fsSL https://bun.sh/install | bash
+```
+
+For Windows, use PowerShell:
+```powershell
+powershell -c "irm bun.sh/install.ps1 | iex"
+```
+
+[Learn more at bun.com](https://bun.com)
+</details>
+
+---
+
 ## 🛠 Configuration
 
 To use Engram Notion MCP, you need to set up your environment variables.
