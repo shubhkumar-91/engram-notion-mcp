@@ -52,7 +52,7 @@ To use Engram Notion MCP, you need to set up your environment variables.
 > ### 💡 Quick Setup Tips
 > <details>
 > <summary>
-> <h4 style="display: inline-block; margin: 0;">🔑 How to get Notion API Key</h4>
+> <strong>🔑 How to get Notion API Key</strong>
 > </summary>
 >
 > 1.  Go to [Notion My Integrations](https://www.notion.so/my-integrations).
@@ -63,7 +63,7 @@ To use Engram Notion MCP, you need to set up your environment variables.
 >
 > <details>
 > <summary>
-> <h4 style="display: inline-block; margin: 0; margin-bottom: 1rem;">🤖 How to get Telegram Bot Token & Chat ID</h4>
+> <strong>🤖 How to get Telegram Bot Token & Chat ID</strong>
 > </summary>
 >
 > 1.  **Bot Token**:
@@ -71,7 +71,7 @@ To use Engram Notion MCP, you need to set up your environment variables.
 >     - Send the command `/newbot`.
 >     - Follow the prompts to name your bot.
 >     - Copy the **HTTP API Token**.
-> <br/>
+>
 > 2.  **Chat ID**:
 >     - Search for **@userinfobot** in Telegram.
 >     - Click Start or send `/start`.
@@ -210,7 +210,7 @@ Add this to your `claude_desktop_config.json` or `mcp.json`.
 - **⌨️ Gemini CLI:**
     <details>
     <summary>
-    <h4 style="display: inline-block; margin: 0;">Bun (Recommended)</h4>
+    <strong>Bun (Recommended)</strong>
     </summary>
 
     ```bash
@@ -220,7 +220,7 @@ Add this to your `claude_desktop_config.json` or `mcp.json`.
 
     <details>
     <summary>
-    <h4 style="display: inline-block; margin: 0;">Node.js - NPX (Standard)</h4>
+    <strong>Node.js - NPX (Standard)</strong>
     </summary>
 
     ```bash
