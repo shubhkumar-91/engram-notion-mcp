@@ -3,12 +3,23 @@ name: Publish Engram (Dual Stack)
 on:
   push:
     branches: [ master ]
+  workflow_dispatch:
+    inputs:
+      target:
+        description: 'Target to publish'
+        required: true
+        default: 'both'
+        type: choice
+        options:
+        - both
+        - python
+        - node
 
 jobs:
   # 1. Publish Python Version (PyPI)
   publish-pypi:
     runs-on: ubuntu-latest
-    if: inputs.target == 'python' || github.event_name == 'push'
+    if: inputs.target == 'python' || inputs.target == 'both' || github.event_name == 'push'
     steps:
       - uses: actions/checkout@v4
       - name: Check for Python changes
@@ -20,11 +31,11 @@ jobs:
               - 'python/**'
 
       - name: Install uv
-        if: steps.check.outputs.src == 'true'
+        if: steps.check.outputs.src == 'true' || github.event_name == 'workflow_dispatch'
         run: curl -LsSf https://astral.sh/uv/install.sh | sh
 
       - name: Build and Publish
-        if: steps.check.outputs.src == 'true'
+        if: steps.check.outputs.src == 'true' || github.event_name == 'workflow_dispatch'
         working-directory: ./python
         env:
           UV_PUBLISH_TOKEN: ${{ secrets.PYPI_API_TOKEN }}
@@ -35,7 +46,7 @@ jobs:
   # 2. Publish Bun Version (NPM)
   publish-npm:
     runs-on: ubuntu-latest
-    if: inputs.target == 'node' || github.event_name == 'push'
+    if: inputs.target == 'node' || inputs.target == 'both' || github.event_name == 'push'
     steps:
       - uses: actions/checkout@v4
       - name: Check for Node changes
@@ -47,13 +58,13 @@ jobs:
               - 'node/**'
 
       - name: Setup Bun
-        if: steps.check.outputs.src == 'true'
+        if: steps.check.outputs.src == 'true' || github.event_name == 'workflow_dispatch'
         uses: oven-sh/setup-bun@v1
         with:
           bun-version: latest
 
       - name: Install & Publish
-        if: steps.check.outputs.src == 'true'
+        if: steps.check.outputs.src == 'true' || github.event_name == 'workflow_dispatch'
         working-directory: ./node
         env:
           NPM_CONFIG_TOKEN: ${{ secrets.NPM_ACCESS_TOKEN }}
