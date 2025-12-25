@@ -230,6 +230,13 @@ Add this to your `claude_desktop_config.json` or `mcp.json`.
 
 ---
 
+## 💬 Support & Feedback
+If you face any issues or have suggestions, please feel free to:
+- Open an issue on this [GitHub Repository](https://github.com/shubhamomar/engram-notion-mcp/issues).
+- Reach out to me directly via my GitHub profile.
+
+---
+
 ## Quick Links
 
 This MCP tool is published as a package on NPM and PyPI.
