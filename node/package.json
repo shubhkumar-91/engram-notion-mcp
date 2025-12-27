@@ -42,6 +42,6 @@
     "typescript": "^5.0.0"
   },
   "bin": {
-    "engram-notion-mcp": "./dist/index.js"
+    "engram-notion-mcp": "dist/index.js"
   }
 }
