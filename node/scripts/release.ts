@@ -36,8 +36,16 @@ console.log(`🚀 Starting ${release} release (ID: ${preid || 'none'}) with pref
 try {
   // 2. Bump version in package.json (no git tag yet)
   // We use --no-git-tag-version so we can sync python first, then commit all together
-  const preidFlag = preid ? `--preid=${preid}` : "";
-  await $`bun pm version ${release} ${preidFlag} --no-git-tag-version`;
+
+  if(release === "stable") {
+    const currentVersion = pkg.version;
+    const stableVersion = currentVersion.split('-')[0]; // simple strip
+    console.log(`🌟 graduating ${currentVersion} to stable ${stableVersion}`);
+    await $`bun pm version ${stableVersion} --no-git-tag-version`;
+  } else {
+    const preidFlag = preid ? `--preid=${preid}` : "";
+    await $`bun pm version ${release} ${preidFlag} --no-git-tag-version`;
+  }
 
   // 3. Read the NEW version from updated package.json
   const newPkg = await Bun.file(pkgPath).json();

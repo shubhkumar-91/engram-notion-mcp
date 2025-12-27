@@ -16,6 +16,7 @@ on:
         - patch
         - minor
         - major
+        - stable
       pre_id:
         description: 'Pre-release identifier (only used for pre* version types)'
         required: false
