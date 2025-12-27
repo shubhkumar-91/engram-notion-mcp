@@ -28,7 +28,7 @@
     "preremove-dependencies": "rm -f ./bun.lock ./package-lock.json",
     "remove-dependencies": "rm -rf ./node_modules",
     "postremove-dependencies": "bun install",
-    "release": "npm version ${npm_config_release:-$npm_package_config_release} --preid=${npm_config_preid:-$npm_package_config_preid} -m '[skip ci] [npm-auto-versioning] new released version v%s' --tag-version-prefix=${npm_config_tag_version_prefix:-$npm_package_config_tagVersionPrefix}",
+    "release": "bun run scripts/release.ts",
     "prepublishOnly": "bun run build",
     "git-push": "git push --follow-tags"
   },

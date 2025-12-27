@@ -44,11 +44,14 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
 
+      - name: Create .npmrc config
+        working-directory: ./node
+        run: |
+          echo "release=${{ inputs.version_type }}" > .npmrc
+          echo "preid=${{ inputs.pre_id }}" >> .npmrc
+
       - name: Bump Version & Sync
         working-directory: ./node
-        env:
-          npm_config_release: ${{ inputs.version_type }}
-          npm_config_preid: ${{ inputs.pre_id }}
         run: |
           # Uses the 'release' script in package.json which respects .npmrc or env vars.
           # The script: npm version ... -m ...
