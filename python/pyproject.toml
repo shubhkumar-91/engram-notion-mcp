@@ -1,6 +1,6 @@
 [project]
-name = "engram-mcp"
-version = "0.1.0"
+name = "engram-notion-mcp"
+version = "0.2.0-rc.1"
 description = "The permanent and semantic memory layer for AI agents"
 dependencies = [
     "mcp",
@@ -14,8 +14,8 @@ authors = [
 ]
 readme = "README.md"
 license = { text = "MIT" }
-urls = { Repository = "https://github.com/shubhamomar/engram-mcp" }
-scripts = { "engram-mcp" = "engram_mcp.server:mcp.run" }
+urls = { Repository = "https://github.com/shubhamomar/engram-notion-mcp" }
+scripts = { "engram-notion-mcp" = "engram_mcp.server:mcp.run" }
 
 [build-system]
 requires = ["hatchling"]

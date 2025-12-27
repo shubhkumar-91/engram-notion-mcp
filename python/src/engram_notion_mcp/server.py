@@ -37,7 +37,7 @@ def get_default_db_path() -> Path:
 # Get DB_PATH from env or usage defaults
 env_db_path = os.getenv("AGENT_MEMORY_PATH")
 if env_db_path:
-    DB_PATH = Path(env_db_path)
+    DB_PATH = Path(env_db_path).expanduser().resolve()
 else:
     DB_PATH = get_default_db_path()
 
@@ -52,19 +52,36 @@ except Exception as e:
 def init_db():
     conn = sqlite3.connect(str(DB_PATH))
     c = conn.cursor()
-    c.execute('''CREATE TABLE IF NOT EXISTS facts
-                 (id INTEGER PRIMARY KEY AUTOINCREMENT, content TEXT)''')
+    # Enable FTS5 if available
+    try:
+        c.execute('''CREATE VIRTUAL TABLE IF NOT EXISTS memory_index
+                     USING fts5(content, metadata, tokenize='porter')''')
+    except Exception:
+        # Fallback to normal table if FTS not compiled in
+        c.execute('''CREATE TABLE IF NOT EXISTS memory_index
+                     (content TEXT, metadata TEXT)''')
+
     conn.commit()
     conn.close()
 
 init_db()
 
-def _save_to_db(content: str):
-    """Helper to save content to the internal SQLite database."""
+import json
+from datetime import datetime
+
+def _save_to_db(content: str, metadata: dict = None):
+    """
+    Helper to save content to the internal SQLite database.
+    Arg 'metadata' contains structured info like {'type': 'page_create', 'title': '...'}.
+    """
     try:
         conn = sqlite3.connect(DB_PATH)
         c = conn.cursor()
-        c.execute("INSERT INTO facts (content) VALUES (?)", (content,))
+
+        meta_str = json.dumps(metadata) if metadata else "{}"
+
+        # Insert into FTS index
+        c.execute("INSERT INTO memory_index (content, metadata) VALUES (?, ?)", (content, meta_str))
         conn.commit()
         conn.close()
     except Exception as e:
@@ -73,21 +90,22 @@ def _save_to_db(content: str):
 @mcp.tool()
 def remember_fact(fact: str) -> str:
     """Stores a fact in the agent's internal SQLite memory."""
-    _save_to_db(fact)
+    _save_to_db(fact, {"type": "manual_fact", "timestamp": datetime.now().isoformat()})
     return f"Remembered: {fact}"
 
 @mcp.tool()
-def create_page(title: str, content: str = "") -> str:
+def create_page(title: str, content: str = "", parent_id: str = None) -> str:
     """
-    Creates a new sub-page in Notion under the configured parent page.
+    Creates a new sub-page in Notion.
 
     Args:
         title: The title of the new page.
         content: Optional initial content (paragraph) for the page.
+        parent_id: Optional ID of the parent page. Defaults to NOTION_PAGE_ID env var if set.
     """
-    parent_id = os.getenv("NOTION_PAGE_ID")
-    if not parent_id:
-        return "Error: NOTION_PAGE_ID not set in environment variables."
+    target_parent = parent_id or os.getenv("NOTION_PAGE_ID")
+    if not target_parent:
+        return "Error: No parent_id provided and NOTION_PAGE_ID not set. Please specify where to create this page."
 
     try:
         # Construct children if content is provided
@@ -102,7 +120,7 @@ def create_page(title: str, content: str = "") -> str:
             })
 
         response = notion.pages.create(
-            parent={"page_id": parent_id},
+            parent={"page_id": target_parent},
             properties={
                 "title": [
                     {
@@ -116,7 +134,17 @@ def create_page(title: str, content: str = "") -> str:
         )
 
         page_url = response.get("url", "URL not found")
-        _save_to_db(f"Memory Trace Encoded: Created Page '{title}' - {page_url}")
+
+        # Spy Logging
+        log_content = f"Created Page: {title}. Content snippet: {content[:100]}"
+        meta = {
+            "type": "create_page",
+            "title": title,
+            "url": page_url,
+            "timestamp": datetime.now().isoformat()
+        }
+        _save_to_db(log_content, meta)
+
         return f"Successfully created page '{title}'. URL: {page_url}"
     except Exception as e:
         return f"Error creating page: {str(e)}"
@@ -133,8 +161,15 @@ def update_page(page_id: str, title: str, content: str, type: str = "paragraph",
         type: The type of block ('paragraph', 'bulleted_list_item', 'code', or 'table').
         language: The language for code blocks (e.g., 'mermaid', 'python'). Defaults to 'plain text'.
     """
-    # 1. Save to internal memory
-    _save_to_db(f"Synaptic Strengthening: Updated Page {page_id} - Title: {title}, Content: {content}")
+    # 1. Save to internal memory (Spy)
+    log_content = f"Updated Page {page_id} with section '{title}'. Content: {content[:100]}..."
+    meta = {
+        "type": "update_page",
+        "page_id": page_id,
+        "section_title": title,
+        "timestamp": datetime.now().isoformat()
+    }
+    _save_to_db(log_content, meta)
 
     # Validate type
     if type not in ["paragraph", "bulleted_list_item", "code", "table"]:
@@ -230,16 +265,22 @@ def update_page(page_id: str, title: str, content: str, type: str = "paragraph",
         return f"Error updating page: {str(e)}"
 
 @mcp.tool()
-def log_to_notion(title: str, content: str, type: str = "paragraph", language: str = "plain text") -> str:
+def log_to_notion(title: str, content: str, type: str = "paragraph", language: str = "plain text", page_id: str = None) -> str:
     """
-    Logs an entry to the default Notion page (configured in env).
-    Convenience wrapper around update_page.
-    """
-    page_id = os.getenv("NOTION_PAGE_ID")
-    if not page_id:
-        return "Error: NOTION_PAGE_ID not set in environment variables."
+    Logs an entry to a Notion page.
 
-    return update_page(page_id, title, content, type, language)
+    Args:
+        title: The heading for the new section.
+        content: The text content.
+        type: Block type.
+        language: Code language (if type is code).
+        page_id: Optional ID of the target page. Defaults to NOTION_PAGE_ID env var if set.
+    """
+    target_page = page_id or os.getenv("NOTION_PAGE_ID")
+    if not target_page:
+        return "Error: No page_id provided and NOTION_PAGE_ID not set."
+
+    return update_page(target_page, title, content, type, language)
 
 @mcp.tool()
 def list_sub_pages(parent_id: str = None) -> str:
@@ -320,46 +361,159 @@ def send_alert(message: str) -> str:
 @mcp.tool()
 def search_memory(query: str) -> str:
     """
-    Searches the agent's internal memory for facts matching the query.
+    Searches the agent's internal memory using Semantic-like Keyword Search (FTS).
 
     Args:
-        query: The search term to look for.
+        query: The search term to look for. Supports partial matches.
     """
     try:
         conn = sqlite3.connect(DB_PATH)
         c = conn.cursor()
-        c.execute("SELECT content FROM facts WHERE content LIKE ?", (f"%{query}%",))
+
+        # Use FTS MATCH operator for ranking
+        # We sanitize query to avoid syntax errors with FTS operators if user types weird chars
+        safe_query = re.sub(r'[^a-zA-Z0-9\s]', '', query)
+
+        c.execute("""
+            SELECT content, metadata FROM memory_index
+            WHERE memory_index MATCH ?
+            ORDER BY rank
+            LIMIT 10
+        """, (safe_query,))
+
         results = c.fetchall()
         conn.close()
 
         if not results:
             return "No matching memories found."
 
-        return "\n".join([f"- {r[0]}" for r in results])
+        formatted = []
+        for r in results:
+            content = r[0]
+            try:
+                meta = json.loads(r[1])
+                timestamp = meta.get("timestamp", "")
+                prefix = f"[{timestamp}] " if timestamp else ""
+                formatted.append(f"- {prefix}{content}")
+            except:
+                formatted.append(f"- {content}")
+
+        return "\n".join(formatted)
     except Exception as e:
         return f"Error searching memory: {str(e)}"
 
 @mcp.tool()
 def get_recent_memories(limit: int = 5) -> str:
     """
-    Retrieves the most recent memories from the agent's internal database.
-
-    Args:
-        limit: The number of recent memories to retrieve (default: 5).
+    Retrieves the most recent memories.
     """
     try:
         conn = sqlite3.connect(DB_PATH)
         c = conn.cursor()
-        c.execute("SELECT content FROM facts ORDER BY id DESC LIMIT ?", (limit,))
+        # FTS tables don't have default ROWID optimization in all versions,
+        # but usually 'docid' or 'rowid' exists.
+        c.execute("SELECT content, metadata FROM memory_index ORDER BY rowid DESC LIMIT ?", (limit,))
         results = c.fetchall()
         conn.close()
 
         if not results:
             return "No memories found."
 
-        return "\n".join([f"- {r[0]}" for r in results])
+        formatted = []
+        for r in results:
+            content = r[0]
+            try:
+                meta = json.loads(r[1])
+                kind = meta.get("type", "memory").upper()
+                formatted.append(f"- [{kind}] {content}")
+            except:
+                formatted.append(f"- {content}")
+
+        return "\n".join(formatted)
     except Exception as e:
         return f"Error retrieving recent memories: {str(e)}"
+
+    file_path = DB_PATH / "files" / filename
+    try:
+        file_path.parent.mkdir(parents=True, exist_ok=True)
+        with open(file_path, "wb") as f:
+            f.write(content)
+        return str(file_path)
+    except Exception as e:
+        return f"Error saving file: {str(e)}"
+
+@mcp.tool()
+def list_databases() -> str:
+    """
+    Lists all databases shared with the integration.
+    """
+    try:
+        response = notion.search(filter={"value": "database", "property": "object"})
+        dbs = []
+        for result in response.get("results", []):
+            title = "Untitled"
+            if result.get("title"):
+                title = "".join([t["plain_text"] for t in result["title"]])
+
+            dbs.append(f"- {title} (ID: {result['id']})")
+
+        if not dbs:
+            return "No accessible databases found. Make sure to share them with the integration."
+
+        return "\n".join(dbs)
+    except Exception as e:
+        return f"Error listing databases: {str(e)}"
+
+@mcp.tool()
+def query_database(database_id: str, query_filter: str = None) -> str:
+    """
+    Queries a database and returns its items.
+
+    Args:
+        database_id: The ID of the database to query.
+        query_filter: Optional JSON string for Notion filter object.
+    """
+    try:
+        kwargs = {"database_id": database_id}
+        if query_filter:
+            import json
+            try:
+                kwargs["filter"] = json.loads(query_filter)
+            except:
+                return "Error: Invalid JSON for query_filter."
+
+        response = notion.databases.query(**kwargs)
+        items = []
+        for page in response.get("results", []):
+            # Try to find a title property
+            title = "Untitled"
+            props = page.get("properties", {})
+            for name, prop in props.items():
+                if prop["id"] == "title":
+                    title_list = prop.get("title", [])
+                    if title_list:
+                        title = "".join([t["plain_text"] for t in title_list])
+                    break
+
+            items.append(f"- {title} (ID: {page['id']})")
+
+        if not items:
+            return "No items found in database."
+
+        return "\n".join(items)
+    except Exception as e:
+        return f"Error querying database: {str(e)}"
+
+@mcp.tool()
+def delete_block(block_id: str) -> str:
+    """
+    Deletes (archives) a block or page.
+    """
+    try:
+        notion.blocks.delete(block_id=block_id)
+        return f"Successfully deleted block {block_id}"
+    except Exception as e:
+        return f"Error deleting block: {str(e)}"
 
 if __name__ == "__main__":
     # Check for port argument to run in SSE mode

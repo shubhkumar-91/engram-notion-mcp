@@ -1,0 +1,78 @@
+name: Publish Engram (Dual Stack)
+
+on:
+  workflow_dispatch:
+    inputs:
+      target:
+        description: 'Target to publish'
+        required: true
+        default: 'both'
+        type: choice
+        options:
+        - both
+        - python
+        - node
+
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  # 1. Publish Python Version (PyPI)
+  publish-pypi:
+    runs-on: ubuntu-latest
+    if: inputs.target == 'python' || inputs.target == 'both'
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check for Python changes
+        id: check
+        uses: dorny/paths-filter@v2
+        with:
+          filters: |
+            src:
+              - 'python/**'
+
+      - name: Install uv
+        if: steps.check.outputs.src == 'true' || github.event_name == 'workflow_dispatch'
+        uses: astral-sh/setup-uv@v7
+        with:
+          version: 0.9.16
+          enable-cache: true
+
+      - name: Build and Publish
+        if: steps.check.outputs.src == 'true' || github.event_name == 'workflow_dispatch'
+        working-directory: ./python
+        env:
+          UV_PUBLISH_TOKEN: ${{ secrets.PYPI_API_TOKEN }}
+        run: |
+          cp ../README.md README.md
+          uv build
+          uv publish
+
+  # 2. Publish Bun Version (NPM)
+  publish-npm:
+    runs-on: ubuntu-latest
+    if: inputs.target == 'node' || inputs.target == 'both'
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check for Node changes
+        id: check
+        uses: dorny/paths-filter@v2
+        with:
+          filters: |
+            src:
+              - 'node/**'
+
+      - name: Setup Bun
+        if: steps.check.outputs.src == 'true' || github.event_name == 'workflow_dispatch'
+        uses: oven-sh/setup-bun@v1
+        with:
+          bun-version: latest
+
+      - name: Install & Publish
+        if: steps.check.outputs.src == 'true' || github.event_name == 'workflow_dispatch'
+        working-directory: ./node
+        run: |
+          cp ../README.md README.md
+          bun install
+          npm publish --provenance --access public

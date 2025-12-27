@@ -1,0 +1,61 @@
+name: Prepare Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      version_type:
+        description: 'Version bump type (major | minor | patch | premajor | preminor | prepatch | prerelease)'
+        required: true
+        default: 'prerelease'
+        type: choice
+        options:
+        - prerelease
+        - prepatch
+        - preminor
+        - premajor
+        - patch
+      pre_id:
+        description: 'Pre-release identifier (only used for pre* version types)'
+        required: false
+        default: 'rc'
+        type: choice
+        options:
+        - rc
+        - alpha
+        - beta
+        - experimental
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.PAT }} # Requires a PAT to push changes/tags back to protected branches
+          fetch-depth: 0
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v1
+        with:
+          bun-version: latest
+
+      - name: Configure Git User
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: Create .npmrc config
+        working-directory: ./node
+        run: |
+          echo "release=${{ inputs.version_type }}" > .npmrc
+          echo "preid=${{ inputs.pre_id }}" >> .npmrc
+
+      - name: Bump Version & Sync
+        working-directory: ./node
+        run: |
+          # Uses the 'release' script in package.json which respects .npmrc or env vars.
+          # The script: npm version ... -m ...
+          bun run release
+
+      - name: Push Changes
+        run: bun run git-push

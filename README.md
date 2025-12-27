@@ -1,125 +1,245 @@
-# Engram
+# Engram Notion MCP - Semantic Memory for AI Agents
 
-**The permanent and semantic memory layer for AI agents.**
+**Engram Notion MCP** is a powerful Model Context Protocol (MCP) server that gives your AI agents a **permanent, semantic memory**. It seamlessly integrates with [Notion](https://notion.so) to store, retrieve, and organize information, turning your workspace into an intelligent knowledge base.
 
-<div align="center">
-  <p><em>A better-notion-mcp bridge for effortless usage of Notion as a knowledge base.</em></p>
-</div>
+> 🧠 **Why Engram?**
+> AI Agents often suffer from amnesia. Engram solves this by providing a persistent memory layer backed by Notion's robust database structure.
 
-## Introduction
+---
 
-**Engram** transforms your Notion workspace into a living, cognitive substrate for your AI agents.
+## 📦 Features
 
-### Why Engram?
-According to neuropsychology, an **engram** is a unit of cognitive information imprinted in a physical substance, theorized to be the means by which memories are stored. This MCP server acts as that physical bridge, allowing your AI to:
-- **Encode Information**: Instantly store facts in a local vector-like "synaptic" database.
-- **Stimulate Recall**: Semantically search your entire knowledge base to retrieve context.
-- **Imprint Knowledge**: Create and edit rich Notion pages (markdown, tables, mermaid) as permanent memory traces.
+### Notion Integration
+| Feature | Tool Name | Description |
+| :--- | :--- | :--- |
+| **Page Creation** | `create_page` | Create new pages with content. Supports explicit parent IDs or defaults. |
+| **Page Updates** | `update_page` | Append content to existing pages. |
+| **Logging** | `log_to_notion` | Fast logging wrapper for appending notes/logs. |
+| **Reading** | `read_page_content` | Read and parse page content into Agent-friendly text. |
+| **Databases** | `list_databases` | detailed list of accessible databases. |
+| **Querying** | `query_database` | Query databases with filters to find specific items. |
+| **Organization** | `list_sub_pages` | List pages within a parent page. |
+| **Cleanup** | `delete_block` | Archive/Delete blocks or pages. |
 
-## Features
+### Semantic Memory (SQLite)
+| Feature | Tool Name | Description |
+| :--- | :--- | :--- |
+| **Store Facts** | `remember_fact` | Saves key info to internal vector-like storage. |
+| **Search** | `search_memory` | Full-text search over stored memories. |
+| **Recall** | `get_recent_memories`| Retrieve the latest context/facts. |
 
-| Feature Category | Tool Name | Description | Arguments |
-| :--- | :--- | :--- | :--- |
-| **Memory** | `remember_fact` | Store a text snippet (memory trace) in the local synaptic database. | `fact` (str) |
-| | `search_memory` | Semantically retrieve facts ("Stimulate Recall"). | `query` (str) |
-| | `get_recent_memories` | Retrieve the most recent memory traces. | `limit` (int) |
-| **Page Management** | `create_page` | Create a new sub-page under your root page. | `title` (str), `content` (str) |
-| | `list_sub_pages` | List all child pages of a specific page. | `parent_id` (str, optional) |
-| | `read_page_content` | Read and parse the content of a page as Markdown. | `page_id` (str) |
-| **Content Editing** | `update_page` | Append rich content (paragraphs, code, tables) to a page. | `page_id` (str), `title` (str), `content` (str), `type` (str), `language` (str) |
-| | `log_to_notion` | Fast way to append a daily log/note to the root page. | `title` (str), `content` (str) |
-| **Utilities** | `send_alert` | Send a push notification via Telegram. | `message` (str) |
+### Operations
+| Feature | Tool Name | Description |
+| :--- | :--- | :--- |
+| **Alerts** | `send_alert` | Send push notifications via Telegram. |
 
-## Prerequisites
+---
 
-Before using this tool, ensure you have **Python 3.10 or higher** installed.
+## 🛠 Configuration
 
-<details>
-<summary><strong>Installing uv (Recommended)</strong></summary>
+To use Engram Notion MCP, you need to set up your environment variables.
 
-We recommend using **uv** for the best experience.
-[Download uv here](https://docs.astral.sh/uv/)
+| Variable | Required | Description |
+| :--- | :--- | :--- |
+| `NOTION_API_KEY` | **Yes** | Your Notion Internal Integration Token (`secret_...`). |
+| `NOTION_PAGE_ID` | No | Default Page ID for creating pages if no parent is specified. |
+| `TELEGRAM_BOT_TOKEN`| No | For `send_alert` tool. |
+| `TELEGRAM_CHAT_ID` | No | For `send_alert` tool. |
+| `AGENT_MEMORY_PATH` | No | Custom path for the SQLite memory database. |
 
-</details>
+---
 
-<details>
-<summary><strong>Installing pipx (Alternative)</strong></summary>
+> ### 💡 Quick Setup Tips
+> <details>
+> <summary>
+> <strong>🔑 How to get Notion API Key</strong>
+> </summary>
+>
+> 1.  Go to [Notion My Integrations](https://www.notion.so/my-integrations).
+> 2.  Click **New integration**.
+> 3.  Name it (e.g., "Engram Notion MCP") and submit.
+> 4.  Copy the **Internal Integration Secret**. this is your `NOTION_API_KEY`.
+> </details>
+>
+> <details>
+> <summary>
+> <strong>🤖 How to get Telegram Bot Token & Chat ID</strong>
+> </summary>
+>
+> 1.  **Bot Token**:
+>     - Open Telegram and search for **@BotFather**.
+>     - Send the command `/newbot`.
+>     - Follow the prompts to name your bot.
+>     - Copy the **HTTP API Token**.
+>
+> 2.  **Chat ID**:
+>     - Search for **@userinfobot** in Telegram.
+>     - Click Start or send `/start`.
+>     - It will reply with your **Id**. Copy this number.
+> </details>
+>
 
-If you prefer `pipx`, install it using these universal commands (works on Windows, Mac, and Linux):
+---
 
-```bash
-# 1. Install pipx (user scope)
-python3 -m pip install --user pipx
+### Configuration Patterns
 
-# 2. Add to PATH
-python3 -m pipx ensurepath
+#### 1. Minimal Setup (Flexible / Unbound)
+You can omit `NOTION_PAGE_ID` to keep the agent "unbound". It will force the agent to ask for a destination or search for one.
 
-# 3. Verify
-pipx --version
+```json
+"env": {
+  "NOTION_API_KEY": "secret_your_key_here"
+}
 ```
-</details>
 
-## Configuration
+#### 2. Multi-Page Support
+You don't need to configure an array of IDs. **Engram relies on Notion's native permissions.**
+To give the agent access to multiple specific pages:
+1.  Open any page in Notion.
+2.  Click the **... (three dots)** menu (top-right) -> **Connections**.
+3.  Look for the name you gave your integration (e.g., "Engram Notion MCP").
+4.  Once connected, the agent can automatically see this page using the `list_accessible_pages` tool.
+5.  **Repeat this** for any other page you want the agent to see.
 
-### 1. Notion Setup
-*   **Integration Token**: Go to [Notion My Integrations](https://www.notion.so/my-integrations) -> New Integration -> Copy the "Internal Integration Secret".
-*   **Page ID**: Open the Notion page you want to use as the root. Copy the alphanumeric ID from the URL. **Don't forget to connect this page to your specific integration**.
+---
 
-### 2. Environment Variables
+## 🔌 Installation & Client Setup Instructions
 
-| Variable | Description | Default / Note | Required |
-| :--- | :--- | :--- | :---: |
-| `NOTION_API_KEY` | Your Notion Integration Secret. | - | ✅ |
-| `NOTION_PAGE_ID` | The ID of the root page for creating/listing content. | - | ✅ |
-| `TELEGRAM_BOT_TOKEN` | Token from @BotFather for alerts. | Optional | ❌ |
-| `TELEGRAM_CHAT_ID` | Your Chat ID for receiving alerts. | Optional | ❌ |
-| `AGENT_MEMORY_PATH` | Path to the local SQLite DB. | **Win**: `C:\Users\<User>\.engram\data\`<br>**Mac**: `~/Library/.engram/data/` | ❌ |
+<details open>
+<summary>
+<h3 style="display: inline-block;"> ⚡ Recommended (Fastest) - Bun</h3>
+</summary>
 
-## Client Setup
+Use `bunx` to run the server with native performance (`bun:sqlite`).
 
-Add the following to your MCP client configuration (e.g., `claude_desktop_config.json` for Claude Desktop).
+Add this to your `claude_desktop_config.json` or `mcp.json`.
 
-### Recommended: `uv`
-
+**Config using `bunx` (Recommended):**
 ```json
 {
   "mcpServers": {
-    "engram": {
+    "engram-notion-mcp": {
+      "command": "bunx",
+      "args": ["engram-notion-mcp"],
+      "env": {
+        "NOTION_API_KEY": "secret_your_key_here"
+      }
+    }
+  }
+}
+```
+</details>
+
+---
+
+<details>
+<summary>
+<h3 style="display: inline-block;"> 🐢 Standard - Node.js (NPX)</h3>
+</summary>
+
+Works with any standard Node.js environment (`better-sqlite3`).
+
+Add this to your `claude_desktop_config.json` or `mcp.json`.
+
+**Config using `npx` (Standard):**
+```json
+{
+  "mcpServers": {
+    "engram-notion-mcp": {
+      "command": "npx",
+      "args": ["-y", "engram-notion-mcp"],
+      "env": {
+        "NOTION_API_KEY": "secret_your_key_here"
+      }
+    }
+  }
+}
+```
+</details>
+
+---
+
+<details>
+<summary>
+<h3 style="display: inline-block;"> 🐍 Alternative - Python (UVX / PIPX)</h3>
+</summary>
+
+If you prefer `uvx` or `pipx` or have strict Python environments:
+
+Add this to your `claude_desktop_config.json` or `mcp.json`.
+
+**Config using `uvx` (Alternative):**
+```json
+{
+  "mcpServers": {
+    "engram-notion-mcp": {
       "command": "uvx",
-      "args": ["engram-mcp"],
+      "args": ["engram-notion-mcp"],
       "env": {
-        "NOTION_API_KEY": "secret_...",
-        "NOTION_PAGE_ID": "page_id_...",
-        "TELEGRAM_BOT_TOKEN": "bot_token_...",
-        "TELEGRAM_CHAT_ID": "chat_id_...",
-        "AGENT_MEMORY_PATH": "/path/to/db"
+        "NOTION_API_KEY": "secret_your_key_here"
       }
     }
   }
 }
 ```
 
-<details>
-<summary><strong>Alternative: <code>pipx</code></strong></summary>
+---
+
+**Config using `pipx` (Alternative):**
 
 ```json
 {
   "mcpServers": {
-    "engram": {
+    "engram-notion-mcp": {
       "command": "pipx",
-      "args": ["run", "engram-mcp"],
-      "env": {
-        "NOTION_API_KEY": "secret_...",
-        "NOTION_PAGE_ID": "page_id_...",
-        "TELEGRAM_BOT_TOKEN": "bot_token_...",
-        "...": "..."
-      }
+      "args": ["run", "engram-notion-mcp"],
+      "env": { ... }
     }
   }
 }
 ```
 </details>
 
-## License
+---
 
-This project is licensed under the MIT License.
+**Where to put it:**
+- **🖥️ Desktop Apps (Claude Desktop): `claude_desktop_config.json`**
+- **🆚 VS Code / Cursor / Windsurf**: User Settings (`settings.json`).
+- **Cline / Roo Code**: Extension Settings -> MCP Servers.
+- **Kilo Code**: `.kilo/config.json`.
+- **⌨️ Gemini CLI:**
+    <details>
+    <summary>
+    <strong>Bun (Recommended)</strong>
+    </summary>
+
+    ```bash
+    gemini mcp add engram-notion-mcp bunx "engram-notion-mcp" -e NOTION_API_KEY=<your_secret_key>
+    ```
+    </details>
+
+    <details>
+    <summary>
+    <strong>Node.js - NPX (Standard)</strong>
+    </summary>
+
+    ```bash
+    gemini mcp add engram node "npx engram-notion-mcp" -e NOTION_API_KEY=<your_secret_key>
+    ```
+    </details>
+
+---
+
+## 💬 Support & Feedback
+If you face any issues or have suggestions, please feel free to:
+- Open an issue on this [GitHub Repository](https://github.com/shubhamomar/engram-notion-mcp/issues).
+- Reach out to me directly via my GitHub profile.
+
+---
+
+## Quick Links
+
+This MCP tool is published as a package on NPM and PyPI.
+
+- [Bun / Node.js Package on NPM](https://www.npmjs.com/package/engram-notion-mcp)
+- [Python Package on PyPI](https://pypi.org/project/engram-notion-mcp/)

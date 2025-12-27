@@ -1,0 +1,49 @@
+{
+  "name": "engram-notion-mcp",
+  "version": "0.2.0-rc.1",
+  "description": "Bun implementation of the Engram Notion MCP server",
+  "main": "src/index.ts",
+  "type": "module",
+  "keywords": [
+    "mcp",
+    "notion",
+    "ai",
+    "memory",
+    "agent",
+    "engram"
+  ],
+  "author": "Shubham Omar",
+  "license": "MIT",
+  "config": {
+    "release": "patch",
+    "preid": "rc",
+    "tagVersionPrefix": "REL-"
+  },
+  "scripts": {
+    "start": "bun run src/index.ts",
+    "get-version": "echo $npm_package_version",
+    "get-name": "echo ${npm_package_name}",
+    "prebuild": "rm -rf ./dist",
+    "build": "bun build ./src/index.ts --outfile ./dist/index.js --target node --external better-sqlite3",
+    "preremove-dependencies": "rm -f ./bun.lock ./package-lock.json",
+    "remove-dependencies": "rm -rf ./node_modules",
+    "postremove-dependencies": "bun install",
+    "release": "bun run scripts/release.ts",
+    "prepublishOnly": "bun run build",
+    "git-push": "git push --follow-tags"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.0.1",
+    "@notionhq/client": "^2.2.14",
+    "better-sqlite3": "^11.5.0",
+    "dotenv": "^16.4.5"
+  },
+  "devDependencies": {
+    "@types/better-sqlite3": "^7.6.11",
+    "bun-types": "^1.1.0",
+    "typescript": "^5.0.0"
+  },
+  "bin": {
+    "engram-notion-mcp": "./dist/index.js"
+  }
+}
