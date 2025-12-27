@@ -1,6 +1,6 @@
 [project]
 name = "engram-notion-mcp"
-version = "1.0.0-rc.1"
+version = "1.0.0"
 description = "The permanent and semantic memory layer for AI agents"
 dependencies = [
     "mcp",
