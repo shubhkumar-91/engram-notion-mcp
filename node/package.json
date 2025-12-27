@@ -15,7 +15,7 @@
   "author": "Shubham Omar",
   "license": "MIT",
   "config": {
-    "releaseType": "patch",
+    "release": "patch",
     "preid": "rc",
     "tagVersionPrefix": "REL-"
   },
@@ -28,7 +28,7 @@
     "preremove-dependencies": "rm -f ./bun.lock ./package-lock.json",
     "remove-dependencies": "rm -rf ./node_modules",
     "postremove-dependencies": "bun install",
-    "release": "npm version ${npm_config_release_type:-$npm_package_config_releaseType} --preid=${npm_config_preid:-$npm_package_config_preid} -m '[skip ci] [npm-auto-versioning] new released version v%s' --tag-version-prefix=${npm_config_tag_version_prefix:-$npm_package_config_tagVersionPrefix}",
+    "release": "npm version ${npm_config_release:-$npm_package_config_release} --preid=${npm_config_preid:-$npm_package_config_preid} -m '[skip ci] [npm-auto-versioning] new released version v%s' --tag-version-prefix=${npm_config_tag_version_prefix:-$npm_package_config_tagVersionPrefix}",
     "prepublishOnly": "bun run build",
     "git-push": "git push --follow-tags"
   },
