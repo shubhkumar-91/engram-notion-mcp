@@ -74,7 +74,7 @@ jobs:
           VERSION=$(node -p "require('./package.json').version")
           echo $VERSION
           if [[ $VERSION == *"-"* ]]; then
-            npm publish --access public --tag next
+            npm publish --tag next
           else
-            npm publish --access public
+            npm publish
           fi
