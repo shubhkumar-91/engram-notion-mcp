@@ -1,0 +1,8 @@
+{
+  "track_id": "robust_content_20251230",
+  "type": "bug",
+  "status": "new",
+  "created_at": "2025-12-30T12:30:00Z",
+  "updated_at": "2025-12-30T12:30:00Z",
+  "description": "Enhance robustness for large content operations in Notion integration by implementing automatic content chunking to avoid API timeouts and limits."
+}
