@@ -61,6 +61,17 @@ interface DBAdapter {
   };
 }
 
+// Helper for chunking text
+const chunkString = (str: string, length: number): string[] => {
+  const chunks: string[] = [];
+  let index = 0;
+  while (index < str.length) {
+    chunks.push(str.slice(index, index + length));
+    index += length;
+  }
+  return chunks;
+};
+
 const get_db_adapter = (dbPath: string): DBAdapter => {
   const isBun = typeof Bun !== "undefined";
 
@@ -208,13 +219,16 @@ export const tools: Record<string, (args: ToolArgs) => Promise<string | string[]
     try {
       const children: any[] = [];
       if(content) {
-        children.push({
-          object: "block",
-          type: "paragraph",
-          paragraph: {
-            rich_text: [{ type: "text", text: { content: content } }]
-          }
-        });
+        const chunks = chunkString(content, 1800); // Notion limit is 2000
+        for(const chunk of chunks) {
+          children.push({
+            object: "block",
+            type: "paragraph",
+            paragraph: {
+              rich_text: [{ type: "text", text: { content: chunk } }]
+            }
+          });
+        }
       }
 
       const response: any = await notion.pages.create({
@@ -276,14 +290,17 @@ export const tools: Record<string, (args: ToolArgs) => Promise<string | string[]
 
     if(type === "code") {
       let cleaned_content = content.trim().replace(/^```(?:[\w\+\-]+)?\n?/, "").replace(/\n?```$/, "");
-      children.push({
-        object: "block",
-        type: "code",
-        code: {
-          rich_text: [{ type: "text", text: { content: cleaned_content } }],
-          language: language
-        }
-      });
+      const chunks = chunkString(cleaned_content, 1800);
+      for(const chunk of chunks) {
+        children.push({
+          object: "block",
+          type: "code",
+          code: {
+            rich_text: [{ type: "text", text: { content: chunk } }],
+            language: language
+          }
+        });
+      }
     } else if(type === "table") {
       const rows: string[][] = [];
       const lines = content.trim().split('\n');
@@ -331,13 +348,16 @@ export const tools: Record<string, (args: ToolArgs) => Promise<string | string[]
       });
 
     } else {
-      children.push({
-        object: "block",
-        type: type,
-        [type]: {
-          rich_text: [{ type: "text", text: { content: content } }]
-        }
-      });
+      const chunks = chunkString(content, 1800);
+      for(const chunk of chunks) {
+        children.push({
+          object: "block",
+          type: type,
+          [type]: {
+            rich_text: [{ type: "text", text: { content: chunk } }]
+          }
+        });
+      }
     }
 
     try {
