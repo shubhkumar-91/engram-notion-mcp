@@ -32,4 +32,45 @@ describe("Notion Tools", () => {
     
     listSpy.mockRestore();
   });
+
+  test("list_databases should return list of databases", async () => {
+    const searchSpy = spyOn(notion, "search").mockImplementation(() => 
+      Promise.resolve({
+        results: [
+          {
+            object: "database",
+            id: "db-id-1",
+            title: [{ plain_text: "My Database" }]
+          }
+        ]
+      } as any)
+    );
+
+    const result = await tools.list_databases({});
+    expect(result).toContain("My Database");
+    expect(result).toContain("db-id-1");
+
+    searchSpy.mockRestore();
+  });
+
+  test("query_database should return list of pages", async () => {
+    const querySpy = spyOn(notion.databases, "query").mockImplementation(() => 
+      Promise.resolve({
+        results: [
+          {
+            id: "page-id-1",
+            properties: {
+              Name: { id: "title", title: [{ plain_text: "Page Title" }] }
+            }
+          }
+        ]
+      } as any)
+    );
+
+    const result = await tools.query_database({ database_id: "db-id-1" });
+    expect(result).toContain("Page Title");
+    expect(result).toContain("page-id-1");
+
+    querySpy.mockRestore();
+  });
 });

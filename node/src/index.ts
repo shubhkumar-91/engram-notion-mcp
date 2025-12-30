@@ -345,6 +345,62 @@ export const tools: Record<string, (args: ToolArgs) => Promise<string | string[]
     }
   },
 
+  list_databases: async ({}) => {
+    try {
+      const response = await notion.search({
+        filter: { value: "database", property: "object" }
+      });
+      const dbs: string[] = [];
+      for(const result of response.results as any[]) {
+        let title = "Untitled";
+        if(result.title) {
+          title = result.title.map((t: any) => t.plain_text).join("");
+        }
+        dbs.push(`- ${title} (ID: ${result.id})`);
+      }
+
+      if(dbs.length === 0) return "No accessible databases found. Make sure to share them with the integration.";
+      return dbs.join("\n");
+    } catch(e: any) {
+      return `Error listing databases: ${e.message}`;
+    }
+  },
+
+  query_database: async ({ database_id, query_filter }) => {
+    try {
+      const args: any = { database_id };
+      if(query_filter) {
+        try {
+          args.filter = typeof query_filter === "string" ? JSON.parse(query_filter) : query_filter;
+        } catch(e) {
+          return "Error: Invalid JSON for query_filter.";
+        }
+      }
+
+      const response = await notion.databases.query(args);
+      const items: string[] = [];
+      for(const page of response.results as any[]) {
+        let title = "Untitled";
+        const props = page.properties;
+        for(const name in props) {
+          if(props[name].id === "title") {
+            const title_list = props[name].title;
+            if(title_list) {
+              title = title_list.map((t: any) => t.plain_text).join("");
+            }
+            break;
+          }
+        }
+        items.push(`- ${title} (ID: ${page.id})`);
+      }
+
+      if(items.length === 0) return "No items found in database.";
+      return items.join("\n");
+    } catch(e: any) {
+      return `Error querying database: ${e.message}`;
+    }
+  },
+
   send_alert: async ({ message }) => {
     const bot_token = process.env.TELEGRAM_BOT_TOKEN;
     const chat_id = process.env.TELEGRAM_CHAT_ID;
@@ -460,6 +516,26 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
             page_id: { type: "string" }
           },
           required: ["page_id"],
+        },
+      },
+      {
+        name: "list_databases",
+        description: "Lists all databases shared with the integration.",
+        inputSchema: {
+          type: "object",
+          properties: {},
+        },
+      },
+      {
+        name: "query_database",
+        description: "Queries a database and returns its items.",
+        inputSchema: {
+          type: "object",
+          properties: {
+            database_id: { type: "string" },
+            query_filter: { type: "string", description: "Optional JSON string for Notion filter object." }
+          },
+          required: ["database_id"],
         },
       },
       {
