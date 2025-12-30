@@ -1,7 +1,7 @@
 # Plan: Feature Parity and Testing
 
 ## Phase 1: Node.js Notion Tools Parity
-- [ ] Task: Implement `read_page_content` tool in `node/src/index.ts`
+- [x] Task: Implement `read_page_content` tool in `node/src/index.ts` 224624b
 - [ ] Task: Implement `list_databases` and `query_database` tools in `node/src/index.ts`
 - [ ] Task: Implement `delete_block` tool in `node/src/index.ts`
 - [ ] Task: Conductor - User Manual Verification 'Node.js Notion Tools Parity' (Protocol in workflow.md)
