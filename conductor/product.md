@@ -5,11 +5,18 @@ Engram Notion MCP is a high-performance Model Context Protocol (MCP) server that
 
 ## Core Features
 - **Dual-Stack Implementation:** Available as both a high-performance Bun/Node.js package and a Python package (via FastMCP), ensuring broad compatibility.
-- **Notion Integration:** Full integration with the Notion API for creating pages, updating content, querying databases, and managing blocks.
+- **Notion Integration:**
+  - **Create & Update:** Create new pages or append content to existing ones (`create_page`, `update_page`, `log_to_notion`).
+  - **Read & Analyze:** Read page content (`read_page_content`) and list sub-pages (`list_sub_pages`).
+  - **Database Management:** List accessible databases (`list_databases`) and query them with filters (`query_database`).
+  - **Maintenance:** Archive or delete blocks (`delete_block`).
+- **Semantic Memory (SQLite):**
+  - **Fact Storage:** Store key facts in a local SQLite vector-like storage (`remember_fact`).
+  - **Search:** Perform full-text, semantic-like searches (`search_memory`).
+  - **Recall:** Retrieve recent memories (`get_recent_memories`).
 - **MCP Compliance:** Fully implements the Model Context Protocol to provide standardized context to LLMs.
-- **Semantic Memory:** Leverages SQLite to store facts and perform semantic searches, overcoming the "amnesia" problem of AI agents.
 - **Local Caching:** Utilizes local storage to reduce API latency and manage rate limits efficiently.
-- **Agent Capabilities:** Enables agents to autonomously log notes, creating structured knowledge from conversations.
+- **Operations:** Send push notifications via Telegram (`send_alert`).
 
 ## Target Audience
 - **AI Developers:** Building agents that require long-term memory or access to personal/team knowledge bases.
