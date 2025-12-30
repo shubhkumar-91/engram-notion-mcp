@@ -12,8 +12,8 @@
 ### Notion Integration
 | Feature | Tool Name | Description |
 | :--- | :--- | :--- |
-| **Page Creation** | `create_page` | Create new pages with content. Supports explicit parent IDs or defaults. |
-| **Page Updates** | `update_page` | Append content to existing pages. |
+| **Page Creation** | `create_page` | Create new pages with content. Auto-chunks large text to avoid limits. |
+| **Page Updates** | `update_page` | Append content to existing pages. Auto-chunks large text. |
 | **Logging** | `log_to_notion` | Fast logging wrapper for appending notes/logs. |
 | **Reading** | `read_page_content` | Read and parse page content into Agent-friendly text. |
 | **Databases** | `list_databases` | detailed list of accessible databases. |

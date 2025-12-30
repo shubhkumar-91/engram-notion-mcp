@@ -6,7 +6,7 @@ Engram Notion MCP is a high-performance Model Context Protocol (MCP) server that
 ## Core Features
 - **Dual-Stack Implementation:** Available as both a high-performance Bun/Node.js package and a Python package (via FastMCP), ensuring broad compatibility.
 - **Notion Integration:**
-  - **Create & Update:** Create new pages or append content to existing ones (`create_page`, `update_page`, `log_to_notion`).
+  - **Create & Update:** Create new pages or append content to existing ones (`create_page`, `update_page`, `log_to_notion`). Now with automatic chunking for robust large-content handling.
   - **Read & Analyze:** Read page content (`read_page_content`) and list sub-pages (`list_sub_pages`).
   - **Database Management:** List accessible databases (`list_databases`) and query them with filters (`query_database`).
   - **Maintenance:** Archive or delete blocks (`delete_block`).
