@@ -7,8 +7,8 @@
 - [ ] Task: Conductor - User Manual Verification 'Node.js Notion Tools Parity' (Protocol in workflow.md)
 
 ## Phase 2: Node.js Memory Search Parity
-- [ ] Task: Implement `search_memory` tool with FTS5 ranking in `node/src/index.ts`
-- [ ] Task: Implement `get_recent_memories` tool in `node/src/index.ts`
+- [x] Task: Implement `search_memory` tool with FTS5 ranking in `node/src/index.ts` 60b0d44
+- [x] Task: Implement `get_recent_memories` tool in `node/src/index.ts` 60b0d44
 - [ ] Task: Conductor - User Manual Verification 'Node.js Memory Search Parity' (Protocol in workflow.md)
 
 ## Phase 3: Node.js Testing Suite
