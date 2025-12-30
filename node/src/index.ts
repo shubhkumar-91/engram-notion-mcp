@@ -17,7 +17,7 @@ dotenv.config({ path: path.join(import.meta.dir, "../.env") });
 
 // Initialize Notion Client
 const notionApiKey = process.env.NOTION_API_KEY;
-const notion = new Client({ auth: notionApiKey });
+export const notion = new Client({ auth: notionApiKey });
 
 // Database Initialization
 const get_default_db_path = (): string => {
@@ -130,7 +130,7 @@ interface ToolArgs {
 }
 
 // Tools implementation
-const tools: Record<string, (args: ToolArgs) => Promise<string | string[]>> = {
+export const tools: Record<string, (args: ToolArgs) => Promise<string | string[]>> = {
   remember_fact: async ({ fact }) => {
     _save_to_db(fact, { type: "manual_fact", timestamp: new Date().toISOString() });
     return `Remembered: ${fact}`;
@@ -316,6 +316,35 @@ const tools: Record<string, (args: ToolArgs) => Promise<string | string[]>> = {
     }
   },
 
+  read_page_content: async ({ page_id }) => {
+    try {
+      const response = await notion.blocks.children.list({ block_id: page_id });
+      const content: string[] = [];
+      for(const block of response.results as any[]) {
+        const block_type = block.type;
+        if(block_type === "paragraph") {
+          const text = block.paragraph.rich_text.map((t: any) => t.plain_text).join("");
+          if(text) content.push(text);
+        } else if(["heading_1", "heading_2", "heading_3"].includes(block_type)) {
+          const text = block[block_type].rich_text.map((t: any) => t.plain_text).join("");
+          if(text) content.push(`[${block_type.toUpperCase()}] ${text}`);
+        } else if(block_type === "bulleted_list_item") {
+          const text = block.bulleted_list_item.rich_text.map((t: any) => t.plain_text).join("");
+          if(text) content.push(`- ${text}`);
+        } else if(block_type === "code") {
+          const text = block.code.rich_text.map((t: any) => t.plain_text).join("");
+          const lang = block.code.language;
+          content.push(`\x60\x60\x60${lang}\n${text}\n\x60\x60\x60`);
+        }
+      }
+
+      if(content.length === 0) return "Page is empty or contains unsupported block types.";
+      return content.join("\n\n");
+    } catch(e: any) {
+      return `Error reading page: ${e.message}`;
+    }
+  },
+
   send_alert: async ({ message }) => {
     const bot_token = process.env.TELEGRAM_BOT_TOKEN;
     const chat_id = process.env.TELEGRAM_CHAT_ID;
@@ -420,6 +449,17 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
           properties: {
             parent_id: { type: "string" }
           },
+        },
+      },
+      {
+        name: "read_page_content",
+        description: "Reads the content of a Notion page and returns a simplified text representation.",
+        inputSchema: {
+          type: "object",
+          properties: {
+            page_id: { type: "string" }
+          },
+          required: ["page_id"],
         },
       },
       {
