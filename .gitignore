@@ -37,6 +37,9 @@ bun.lock
 uv.lock
 .npmrc
 
+python/README.md
+node/README.md
+
 
 # Virtual Environment
 venv/
