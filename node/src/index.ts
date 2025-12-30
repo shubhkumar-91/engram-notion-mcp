@@ -401,6 +401,15 @@ export const tools: Record<string, (args: ToolArgs) => Promise<string | string[]
     }
   },
 
+  delete_block: async ({ block_id }) => {
+    try {
+      await notion.blocks.delete({ block_id: block_id });
+      return `Successfully deleted block ${block_id}`;
+    } catch(e: any) {
+      return `Error deleting block: ${e.message}`;
+    }
+  },
+
   send_alert: async ({ message }) => {
     const bot_token = process.env.TELEGRAM_BOT_TOKEN;
     const chat_id = process.env.TELEGRAM_CHAT_ID;
@@ -536,6 +545,17 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
             query_filter: { type: "string", description: "Optional JSON string for Notion filter object." }
           },
           required: ["database_id"],
+        },
+      },
+      {
+        name: "delete_block",
+        description: "Deletes (archives) a block or page.",
+        inputSchema: {
+          type: "object",
+          properties: {
+            block_id: { type: "string" }
+          },
+          required: ["block_id"],
         },
       },
       {

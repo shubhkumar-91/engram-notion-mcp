@@ -73,4 +73,16 @@ describe("Notion Tools", () => {
 
     querySpy.mockRestore();
   });
+
+  test("delete_block should archive a block", async () => {
+    const deleteSpy = spyOn(notion.blocks, "delete").mockImplementation(() => 
+      Promise.resolve({} as any)
+    );
+
+    const result = await tools.delete_block({ block_id: "block-to-delete" });
+    expect(result).toContain("Successfully deleted block");
+    expect(result).toContain("block-to-delete");
+
+    deleteSpy.mockRestore();
+  });
 });
