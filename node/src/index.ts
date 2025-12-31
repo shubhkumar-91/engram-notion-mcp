@@ -65,7 +65,7 @@ interface DBAdapter {
 const chunkString = (str: string, length: number): string[] => {
   const chunks: string[] = [];
   let index = 0;
-  while (index < str.length) {
+  while(index < str.length) {
     chunks.push(str.slice(index, index + length));
     index += length;
   }
@@ -150,15 +150,16 @@ export const tools: Record<string, (args: ToolArgs) => Promise<string | string[]
   },
 
   search_memory: async ({ query }) => {
+    const safe_query = query.replace(/[^a-zA-Z0-9\s]/g, "");
     try {
-      const safe_query = query.replace(/[^a-zA-Z0-9\s]/g, "");
+      // Try FTS5 Match first
       const stmt = dbAdapter.query(`
-        SELECT content, metadata FROM memory_index 
-        WHERE memory_index MATCH $query 
-        ORDER BY rank 
+        SELECT content, metadata FROM memory_index
+        WHERE memory_index MATCH $query
+        ORDER BY rank
         LIMIT 10
       `);
-      
+
       const results = stmt.all({ $query: safe_query });
 
       if(!results || results.length === 0) return "No matching memories found.";
@@ -177,6 +178,34 @@ export const tools: Record<string, (args: ToolArgs) => Promise<string | string[]
 
       return formatted.join("\n");
     } catch(e: any) {
+      // Fallback to LIKE if MATCH fails (e.g. FTS5 not available)
+      if(e.message && (e.message.includes("no such column") || e.message.includes("syntax error"))) {
+        try {
+          const stmt = dbAdapter.query(`
+              SELECT content, metadata FROM memory_index
+              WHERE content LIKE $query
+              ORDER BY rowid DESC
+              LIMIT 10
+            `);
+          const results = stmt.all({ $query: `%${safe_query}%` });
+          if(!results || results.length === 0) return "No matching memories found (fallback search).";
+
+          const formatted = results.map((r: any) => {
+            let content = r.content;
+            try {
+              const meta = JSON.parse(r.metadata);
+              const timestamp = meta.timestamp || "";
+              const prefix = timestamp ? `[${timestamp}] ` : "";
+              return `- ${prefix}${content}`;
+            } catch(e) {
+              return `- ${content}`;
+            }
+          });
+          return formatted.join("\n");
+        } catch(fallbackErr: any) {
+          return `Error searching memory (fallback failed): ${fallbackErr.message}`;
+        }
+      }
       return `Error searching memory: ${e.message}`;
     }
   },
@@ -184,11 +213,11 @@ export const tools: Record<string, (args: ToolArgs) => Promise<string | string[]
   get_recent_memories: async ({ limit = 5 }) => {
     try {
       const stmt = dbAdapter.query(`
-        SELECT content, metadata FROM memory_index 
-        ORDER BY rowid DESC 
+        SELECT content, metadata FROM memory_index
+        ORDER BY rowid DESC
         LIMIT $limit
       `);
-      
+
       const results = stmt.all({ $limit: limit });
 
       if(!results || results.length === 0) return "No memories found.";

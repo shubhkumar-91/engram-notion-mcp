@@ -114,7 +114,7 @@ def chunk_text(text: str, max_length: int = 1800) -> list[str]:
         # Find a suitable split point
         # Look for the last newline within the limit
         split_index = text.rfind('\n', 0, max_length)
-        
+
         if split_index == -1:
             # If no newline, look for the last period
             split_index = text.rfind('. ', 0, max_length)
@@ -127,7 +127,7 @@ def chunk_text(text: str, max_length: int = 1800) -> list[str]:
 
         chunks.append(text[:split_index])
         text = text[split_index:].lstrip() # Remove leading whitespace from next chunk
-    
+
     return chunks
 
 def create_page(title: str, content: str = "", parent_id: str = None) -> str:
@@ -440,14 +440,27 @@ def search_memory(query: str) -> str:
         # We sanitize query to avoid syntax errors with FTS operators if user types weird chars
         safe_query = re.sub(r'[^a-zA-Z0-9\s]', '', query)
 
-        c.execute("""
-            SELECT content, metadata FROM memory_index
-            WHERE memory_index MATCH ?
-            ORDER BY rank
-            LIMIT 10
-        """, (safe_query,))
+        try:
+            c.execute("""
+                SELECT content, metadata FROM memory_index
+                WHERE memory_index MATCH ?
+                ORDER BY rank
+                LIMIT 10
+            """, (safe_query,))
+            results = c.fetchall()
+        except sqlite3.OperationalError as e:
+            # Fallback to LIKE if MATCH fails (e.g. FTS5 not available)
+            if "no such column" in str(e) or "syntax error" in str(e):
+                c.execute("""
+                    SELECT content, metadata FROM memory_index
+                    WHERE content LIKE ?
+                    ORDER BY rowid DESC
+                    LIMIT 10
+                """, (f"%{safe_query}%",))
+                results = c.fetchall()
+            else:
+                raise e
 
-        results = c.fetchall()
         conn.close()
 
         if not results:
