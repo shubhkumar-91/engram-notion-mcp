@@ -10,12 +10,12 @@ dependencies = [
 ]
 requires-python = ">=3.10"
 authors = [
-  { name = "Shubham Omar", email = "shubhamomar53@gmail.com" },
+  { name = "Shubham Kumar", email = "shubhkumar-9153@gmail.com" },
 ]
 readme = "README.md"
 license = { text = "MIT" }
-urls = { Repository = "https://github.com/shubhamomar/engram-notion-mcp" }
-scripts = { "engram-notion-mcp" = "engram_mcp.server:mcp.run" }
+urls = { Repository = "https://github.com/shubhkumar-91/engram-notion-mcp" }
+scripts = { "engram-notion-mcp" = "engram_notion_mcp.server:mcp.run" }
 
 [build-system]
 requires = ["hatchling"]

@@ -1,4 +1,4 @@
-#!/usr/bin/env bun
+#!/usr/bin/env node
 import { Server } from "@modelcontextprotocol/sdk/server/index.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import {
@@ -11,6 +11,8 @@ import dotenv from "dotenv";
 import path from "path";
 import fs from "fs";
 import os from "os";
+
+import { markdownToBlocks } from "./markdown_utils.js";
 
 // Load .env from parent directory
 dotenv.config({ path: path.join(import.meta.dir, "../.env") });
@@ -273,16 +275,9 @@ export const tools: Record<string, (args: ToolArgs) => Promise<string | string[]
     try {
       const children: any[] = [];
       if(content) {
-        const chunks = chunkString(content, 1800); // Notion limit is 2000
-        for(const chunk of chunks) {
-          children.push({
-            object: "block",
-            type: "paragraph",
-            paragraph: {
-              rich_text: [{ type: "text", text: { content: chunk } }]
-            }
-          });
-        }
+        // Use Markdown Parser
+        const blocks = markdownToBlocks(content);
+        children.push(...blocks);
       }
 
       const response: any = await notion.pages.create({
@@ -401,7 +396,12 @@ export const tools: Record<string, (args: ToolArgs) => Promise<string | string[]
         }
       });
 
+    } else if(type === "paragraph") {
+      // Use Markdown Parser for generic paragraph type
+      const blocks = markdownToBlocks(content);
+      children.push(...blocks);
     } else {
+      // Fallback for other types
       const chunks = chunkString(content, 1800);
       for(const chunk of chunks) {
         children.push({

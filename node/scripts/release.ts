@@ -67,7 +67,7 @@ try {
 
   // 5. Commit and Tag
   const tagName = `${tagPrefix}${newVersion}`;
-  const message = `[skip ci] [npm-auto-versioning] new released version v${newVersion}`;
+  const message = `[npm-auto-versioning] new released version v${newVersion}`;
 
   console.log("📝 Committing and Tagging...");
   await $`git add ${pkgPath} ${pyPath}`;

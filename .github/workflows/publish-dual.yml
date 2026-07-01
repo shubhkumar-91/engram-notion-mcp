@@ -32,14 +32,16 @@ jobs:
           version: "0.9.16"
           enable-cache: "true"
 
-      - name: Build and Publish
+      - name: Build Python Package
         working-directory: ./python
-        env:
-          UV_PUBLISH_TOKEN: ${{ secrets.PYPI_API_TOKEN }}
         run: |
           cp ../README.md README.md
           uv build
-          uv publish
+
+      - name: Publish package distributions to PyPI via Trusted Publishing
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          packages-dir: python/dist/
 
   # 2. Publish Bun Version (NPM)
   publish-npm:
@@ -74,7 +76,7 @@ jobs:
           VERSION=$(node -p "require('./package.json').version")
           echo $VERSION
           if [[ $VERSION == *"-"* ]]; then
-            npm publish --tag next
+            npm publish --tag next --provenance
           else
-            npm publish
+            npm publish --provenance
           fi

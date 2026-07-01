@@ -232,7 +232,7 @@ Add this to your `claude_desktop_config.json` or `mcp.json`.
 
 ## 💬 Support & Feedback
 If you face any issues or have suggestions, please feel free to:
-- Open an issue on this [GitHub Repository](https://github.com/shubhamomar/engram-notion-mcp/issues).
+- Open an issue on this [GitHub Repository](https://github.com/shubhkumar-91/engram-notion-mcp/issues).
 - Reach out to me directly via my GitHub profile.
 
 ---

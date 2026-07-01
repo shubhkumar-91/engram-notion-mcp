@@ -12,11 +12,11 @@
     "agent",
     "engram"
   ],
-  "author": "Shubham Omar",
+  "author": "Shubham Kumar",
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/shubhamomar/engram-notion-mcp.git"
+    "url": "https://github.com/shubhkumar-91/engram-notion-mcp.git"
   },
   "publishConfig": {
     "access": "public",
@@ -41,13 +41,15 @@
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.0.1",
     "@notionhq/client": "^2.2.0",
-    "dotenv": "^16.4.5"
+    "dotenv": "^16.4.5",
+    "marked": "17.0.1"
   },
   "optionalDependencies": {
     "better-sqlite3": "^11.5.0"
   },
   "devDependencies": {
     "@types/better-sqlite3": "^7.6.11",
+    "@types/marked": "6.0.0",
     "bun-types": "^1.1.0",
     "typescript": "^5.0.0"
   },

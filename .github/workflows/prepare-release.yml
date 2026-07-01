@@ -44,8 +44,8 @@ jobs:
 
       - name: Configure Git User
         run: |
-          git config user.name "shubhamomar"
-          git config user.email "19784671+shubhamomar@users.noreply.github.com"
+          git config user.name "shubhkumar-91"
+          git config user.email "19784671+shubhkumar-91@users.noreply.github.com"
 
       - name: Create .npmrc config
         working-directory: ./node

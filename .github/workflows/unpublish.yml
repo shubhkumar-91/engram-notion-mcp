@@ -1,0 +1,66 @@
+name: Unpublish Version (Manual)
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version to unpublish (e.g. 1.0.0)'
+        required: true
+        type: string
+      reason:
+        description: 'Reason for removal'
+        required: true
+        type: string
+        default: 'Cleanup'
+
+jobs:
+  unpublish-npm:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          registry-url: 'https://registry.npmjs.org'
+
+      - name: Unpublish from NPM
+        working-directory: ./node
+        run: |
+          VERSION="${{ inputs.version }}"
+          echo "Attempting to unpublish engram-notion-mcp@$VERSION..."
+
+          # Check if version exists
+          if npm view engram-notion-mcp@$VERSION version > /dev/null 2>&1; then
+             # Try unpublish (works if <72h old)
+             npm unpublish engram-notion-mcp@$VERSION --force || echo "Unpublish failed. You might need to deprecate instead."
+          else
+             echo "Version $VERSION not found on NPM, skipping."
+          fi
+
+  unpublish-pypi-instructions:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        name: Checkout repo
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v7
+        with:
+          version: "0.9.16"
+          enable-cache: "true"
+
+      - name: PyPI Unpublish Info
+        working-directory: ./python
+        env:
+          UV_PUBLISH_TOKEN: ${{ secrets.PYPI_API_TOKEN }}
+        run: |
+          echo "⚠️ Pypi Policy: Versions are immutable."
+          echo "You cannot delete a version and re-upload it."
+          echo "To mark version ${{ inputs.version }} as broken, you should YANK it."
+          echo ""
+          echo "How to yank locally (if you have credentials):"
+          echo "  uv pip install twine"
+          echo "  twine yank -u <username> -p <password> engram_notion_mcp ${{ inputs.version }}"
+          echo ""
+          echo "Or go to: https://pypi.org/manage/project/engram-notion-mcp/releases/"
