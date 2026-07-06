@@ -14,7 +14,7 @@ on:
         - node
 
 permissions:
-  id-token: write
+  id-token: write  # Required for OIDC
   contents: read
 
 jobs:
@@ -23,7 +23,7 @@ jobs:
     runs-on: ubuntu-latest
     if: inputs.target == 'python' || inputs.target == 'both'
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
         name: Checkout repo
 
       - name: Install uv
@@ -48,7 +48,7 @@ jobs:
     runs-on: ubuntu-latest
     if: inputs.target == 'node' || inputs.target == 'both'
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
         name: Checkout repo
 
       - name: Setup Bun
@@ -64,10 +64,11 @@ jobs:
         run: bun run build
         working-directory: ./node
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v6
         with:
           node-version: '24'
           registry-url: 'https://registry.npmjs.org'
+          package-manager-cache: false  # never use caching in release builds
 
       - name: Publish NPM Package
         working-directory: ./node
@@ -76,7 +77,7 @@ jobs:
           VERSION=$(node -p "require('./package.json').version")
           echo $VERSION
           if [[ $VERSION == *"-"* ]]; then
-            npm publish --tag next --provenance
+            npm publish --tag next
           else
-            npm publish --provenance
+            npm publish
           fi
