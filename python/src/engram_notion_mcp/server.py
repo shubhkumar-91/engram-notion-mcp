@@ -7,6 +7,7 @@ from pathlib import Path
 from dotenv import load_dotenv
 from fastmcp import FastMCP
 from notion_client import Client
+from engram_notion_mcp.dashboard_assets import DASHBOARD_HTML
 
 # Load environment variables from the same directory as this script
 env_path = Path(__file__).parent / ".env"
@@ -52,14 +53,105 @@ except Exception as e:
 def init_db():
     conn = sqlite3.connect(str(DB_PATH))
     c = conn.cursor()
-    # Enable FTS5 if available
+    c.execute("""CREATE TABLE IF NOT EXISTS sessions (
+        id TEXT PRIMARY KEY,
+        agent_name TEXT,
+        llm_name TEXT,
+        harness_name TEXT,
+        created_at TEXT
+    )""")
+    c.execute("""CREATE TABLE IF NOT EXISTS memories (
+        id TEXT PRIMARY KEY,
+        content TEXT,
+        metadata TEXT,
+        wing TEXT DEFAULT 'default',
+        room TEXT DEFAULT 'general',
+        hall TEXT DEFAULT 'facts',
+        session_id TEXT,
+        prompt TEXT,
+        response TEXT,
+        created_at TEXT,
+        FOREIGN KEY(session_id) REFERENCES sessions(id)
+    )""")
+    c.execute("""CREATE TABLE IF NOT EXISTS nodes (
+        id TEXT PRIMARY KEY,
+        label TEXT,
+        type TEXT DEFAULT 'concept',
+        created_at TEXT
+    )""")
+    c.execute("""CREATE TABLE IF NOT EXISTS edges (
+        id TEXT PRIMARY KEY,
+        source TEXT,
+        target TEXT,
+        relation_type TEXT DEFAULT 'related_to',
+        created_at TEXT,
+        FOREIGN KEY(source) REFERENCES nodes(id),
+        FOREIGN KEY(target) REFERENCES nodes(id)
+    )""")
+    c.execute("""CREATE TABLE IF NOT EXISTS memory_nodes (
+        memory_id TEXT,
+        node_id TEXT,
+        PRIMARY KEY(memory_id, node_id),
+        FOREIGN KEY(memory_id) REFERENCES memories(id),
+        FOREIGN KEY(node_id) REFERENCES nodes(id)
+    )""")
+
     try:
-        c.execute('''CREATE VIRTUAL TABLE IF NOT EXISTS memory_index
-                     USING fts5(content, metadata, tokenize='porter')''')
+        c.execute("CREATE VIRTUAL TABLE IF NOT EXISTS memories_fts USING fts5(content, tokenize='porter')")
     except Exception:
-        # Fallback to normal table if FTS not compiled in
-        c.execute('''CREATE TABLE IF NOT EXISTS memory_index
-                     (content TEXT, metadata TEXT)''')
+        c.execute("CREATE TABLE IF NOT EXISTS memories_fts (content TEXT)")
+
+    try:
+        c.execute("""
+            CREATE TRIGGER IF NOT EXISTS memories_ai AFTER INSERT ON memories BEGIN
+                INSERT INTO memories_fts(rowid, content) VALUES (new.rowid, new.content);
+            END
+        """)
+        c.execute("""
+            CREATE TRIGGER IF NOT EXISTS memories_ad AFTER DELETE ON memories BEGIN
+                DELETE FROM memories_fts WHERE rowid = old.rowid;
+            END
+        """)
+        c.execute("""
+            CREATE TRIGGER IF NOT EXISTS memories_au AFTER UPDATE ON memories BEGIN
+                DELETE FROM memories_fts WHERE rowid = old.rowid;
+                INSERT INTO memories_fts(rowid, content) VALUES (new.rowid, new.content);
+            END
+        """)
+    except Exception:
+        pass
+
+    # Migrate old data if memory_index exists
+    try:
+        c.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='memory_index'")
+        table_check = c.fetchone()
+        if table_check:
+            c.execute("SELECT COUNT(*) FROM memories")
+            count = c.fetchone()[0]
+            if count == 0:
+                import uuid
+                c.execute("SELECT content, metadata FROM memory_index")
+                old_data = c.fetchall()
+                for row in old_data:
+                    mem_id = f"mem_{uuid.uuid4().hex[:12]}"
+                    content = row[0]
+                    metadata = row[1] or "{}"
+                    timestamp = datetime.now().isoformat()
+                    m_type = "manual_fact"
+                    try:
+                        meta_obj = json.loads(metadata)
+                        if "timestamp" in meta_obj:
+                            timestamp = meta_obj["timestamp"]
+                        if "type" in meta_obj:
+                            m_type = meta_obj["type"]
+                    except Exception:
+                        pass
+                    c.execute("""
+                        INSERT INTO memories (id, content, metadata, wing, room, hall, created_at)
+                        VALUES (?, ?, ?, 'default', 'general', ?, ?)
+                    """, (mem_id, content, metadata, m_type, timestamp))
+    except Exception:
+        pass
 
     conn.commit()
     conn.close()
@@ -67,35 +159,196 @@ def init_db():
 init_db()
 
 import json
+import threading
 from datetime import datetime
+from http.server import HTTPServer, BaseHTTPRequestHandler
+import urllib.parse
 
-def _save_to_db(content: str, metadata: dict = None):
-    """
-    Helper to save content to the internal SQLite database.
-    Arg 'metadata' contains structured info like {'type': 'page_create', 'title': '...'}.
-    """
+def ensure_session(session_id: str | None, agent_name: str | None, harness_name: str | None) -> str:
+    import uuid
+    s_id = session_id or f"session_{uuid.uuid4().hex[:12]}"
     try:
-        conn = sqlite3.connect(DB_PATH)
+        conn = sqlite3.connect(str(DB_PATH))
         c = conn.cursor()
-
-        meta_str = json.dumps(metadata) if metadata else "{}"
-
-        # Insert into FTS index
-        c.execute("INSERT INTO memory_index (content, metadata) VALUES (?, ?)", (content, meta_str))
+        c.execute("""
+            INSERT INTO sessions (id, agent_name, llm_name, harness_name, created_at)
+            VALUES (?, ?, NULL, ?, ?)
+            ON CONFLICT(id) DO NOTHING
+        """, (s_id, agent_name or "Agent", harness_name or "Harness", datetime.now().isoformat()))
         conn.commit()
         conn.close()
     except Exception as e:
-        print(f"Error saving to DB: {e}")
+        print(f"Error ensuring session: {e}", file=sys.stderr)
+    return s_id
 
-def remember_fact(fact: str) -> str:
+def _save_to_db(
+    content: str,
+    metadata: dict = None,
+    wing: str = "default",
+    room: str = "general",
+    hall: str = "facts",
+    session_id: str | None = None,
+    prompt: str | None = None,
+    response: str | None = None
+) -> str | None:
+    import uuid
+    try:
+        conn = sqlite3.connect(str(DB_PATH))
+        c = conn.cursor()
+        mem_id = f"mem_{uuid.uuid4().hex[:12]}"
+        meta_str = json.dumps(metadata) if metadata else "{}"
+        timestamp = metadata.get("timestamp", datetime.now().isoformat()) if metadata else datetime.now().isoformat()
+
+        c.execute("""
+            INSERT INTO memories (id, content, metadata, wing, room, hall, session_id, prompt, response, created_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """, (mem_id, content, meta_str, wing, room, hall, session_id, prompt, response, timestamp))
+        conn.commit()
+        conn.close()
+        return mem_id
+    except Exception as e:
+        print(f"Error saving to DB: {e}", file=sys.stderr)
+        return None
+
+def add_notion_page_comment(page_id: str, agent_name: str | None, harness_name: str | None):
+    if not agent_name and not harness_name:
+        return
+    agent = agent_name or "AI Agent"
+    harness = harness_name or "Harness"
+    text = f"last edited by {agent}-using-{harness}"
+    try:
+        notion.comments.create(
+            parent={"page_id": page_id},
+            rich_text=[
+                {
+                    "type": "text",
+                    "text": {"content": text}
+                }
+            ]
+        )
+    except Exception as e:
+        print(f"Failed to add Notion comment to page {page_id}: {e}", file=sys.stderr)
+
+def format_memory_row(r) -> str:
+    content = r[0]
+    metadata_str = r[1] if len(r) > 1 else "{}"
+    created_at = r[2] if len(r) > 2 else ""
+    wing = r[3] if len(r) > 3 else "default"
+    room = r[4] if len(r) > 4 else "general"
+    hall = r[5] if len(r) > 5 else "facts"
+
+    created_at = created_at or ""
+    wing = wing or "default"
+    room = room or "general"
+    hall = hall or "facts"
+
+    if metadata_str:
+        try:
+            meta = json.loads(metadata_str)
+            if meta.get("timestamp") and not created_at:
+                created_at = meta["timestamp"]
+            if meta.get("type") and (not hall or hall == "facts"):
+                hall = meta["type"]
+        except Exception:
+            pass
+
+    kind = hall.upper()
+    time_str = f" [{created_at}]" if created_at else ""
+    return f"- [{kind}] {content} (Wing: {wing}, Room: {room}){time_str}"
+
+def remember_fact(
+    fact: str,
+    wing: str = "default",
+    room: str = "general",
+    hall: str = "facts",
+    session_id: str | None = None,
+    agent_name: str | None = None,
+    harness_name: str | None = None,
+    prompt: str | None = None,
+    response: str | None = None
+) -> str:
     """Stores a fact in the agent's internal SQLite memory."""
-    _save_to_db(fact, {"type": "manual_fact", "timestamp": datetime.now().isoformat()})
+    active_session_id = None
+    if agent_name or harness_name:
+        active_session_id = ensure_session(session_id, agent_name, harness_name)
+    _save_to_db(fact, {"type": "manual_fact", "timestamp": datetime.now().isoformat()}, wing, room, hall, active_session_id, prompt, response)
     return f"Remembered: {fact}"
 
 @mcp.tool(name="remember_fact")
-def tool_remember_fact(fact: str) -> str:
+def tool_remember_fact(
+    fact: str,
+    wing: str = "default",
+    room: str = "general",
+    hall: str = "facts",
+    session_id: str | None = None,
+    agent_name: str | None = None,
+    harness_name: str | None = None,
+    prompt: str | None = None,
+    response: str | None = None
+) -> str:
     """Stores a fact in the agent's internal SQLite memory."""
-    return remember_fact(fact)
+    return remember_fact(fact, wing, room, hall, session_id, agent_name, harness_name, prompt, response)
+
+def remember_relation(
+    source: str,
+    target: str,
+    relation_type: str,
+    wing: str = "default",
+    room: str = "general",
+    session_id: str | None = None,
+    agent_name: str | None = None,
+    harness_name: str | None = None
+) -> str:
+    """Stores a relationship link between two concepts in the knowledge graph."""
+    try:
+        active_session_id = None
+        if agent_name or harness_name:
+            active_session_id = ensure_session(session_id, agent_name, harness_name)
+
+        source_id = re.sub(r'\s+', '_', source.lower().strip())
+        target_id = re.sub(r'\s+', '_', target.lower().strip())
+
+        conn = sqlite3.connect(str(DB_PATH))
+        c = conn.cursor()
+        
+        c.execute("""
+            INSERT INTO nodes (id, label, type, created_at)
+            VALUES (?, ?, 'concept', ?)
+            ON CONFLICT(id) DO NOTHING
+        """, (source_id, source, datetime.now().isoformat()))
+
+        c.execute("""
+            INSERT INTO nodes (id, label, type, created_at)
+            VALUES (?, ?, 'concept', ?)
+            ON CONFLICT(id) DO NOTHING
+        """, (target_id, target, datetime.now().isoformat()))
+
+        edge_id = f"{source_id}_{target_id}_{re.sub(r'\s+', '_', relation_type.lower().strip())}"
+        c.execute("""
+            INSERT INTO edges (id, source, target, relation_type, created_at)
+            VALUES (?, ?, ?, ?, ?)
+            ON CONFLICT(id) DO NOTHING
+        """, (edge_id, source_id, target_id, relation_type, datetime.now().isoformat()))
+
+        conn.commit()
+        conn.close()
+        return f"Successfully recorded relation: [{source}] --({relation_type})--> [{target}]"
+    except Exception as e:
+        return f"Error remembering relation: {str(e)}"
+
+@mcp.tool(name="remember_relation")
+def tool_remember_relation(
+    source: str,
+    target: str,
+    relation_type: str,
+    wing: str = "default",
+    room: str = "general",
+    session_id: str | None = None,
+    agent_name: str | None = None,
+    harness_name: str | None = None
+) -> str:
+    """Stores a relationship link between two concepts in the knowledge graph."""
+    return remember_relation(source, target, relation_type, wing, room, session_id, agent_name, harness_name)
 
 def chunk_text(text: str, max_length: int = 1800) -> list[str]:
     """
@@ -130,15 +383,18 @@ def chunk_text(text: str, max_length: int = 1800) -> list[str]:
 
     return chunks
 
-def create_page(title: str, content: str = "", parent_id: str = None) -> str:
-    """
-    Creates a new sub-page in Notion.
-
-    Args:
-        title: The title of the new page.
-        content: Optional initial content (paragraph) for the page.
-        parent_id: Optional ID of the parent page. Defaults to NOTION_PAGE_ID env var if set.
-    """
+def create_page(
+    title: str,
+    content: str = "",
+    parent_id: str = None,
+    wing: str = "default",
+    room: str = "general",
+    hall: str = "notion_sync",
+    session_id: str | None = None,
+    agent_name: str | None = None,
+    harness_name: str | None = None
+) -> str:
+    """Creates a new sub-page in Notion."""
     target_parent = parent_id or os.getenv("NOTION_PAGE_ID")
     if not target_parent:
         return "Error: No parent_id provided and NOTION_PAGE_ID not set. Please specify where to create this page."
@@ -172,46 +428,56 @@ def create_page(title: str, content: str = "", parent_id: str = None) -> str:
         )
 
         page_url = response.get("url", "URL not found")
+        page_id = response.get("id")
+
+        if agent_name or harness_name:
+            add_notion_page_comment(page_id, agent_name, harness_name)
 
         # Spy Logging
         log_content = f"Created Page: {title}. Content snippet: {content[:100]}"
-        meta = {
-            "type": "create_page",
-            "title": title,
-            "url": page_url,
-            "timestamp": datetime.now().isoformat()
-        }
-        _save_to_db(log_content, meta)
+        active_session_id = None
+        if agent_name or harness_name:
+            active_session_id = ensure_session(session_id, agent_name, harness_name)
+        _save_to_db(log_content, {"type": "create_page", "title": title, "url": page_url}, wing, room, hall, active_session_id)
 
         return f"Successfully created page '{title}'. URL: {page_url}"
     except Exception as e:
         return f"Error creating page: {str(e)}"
 
 @mcp.tool(name="create_page")
-def tool_create_page(title: str, content: str = "", parent_id: str = None) -> str:
+def tool_create_page(
+    title: str,
+    content: str = "",
+    parent_id: str = None,
+    wing: str = "default",
+    room: str = "general",
+    hall: str = "notion_sync",
+    session_id: str | None = None,
+    agent_name: str | None = None,
+    harness_name: str | None = None
+) -> str:
     """Creates a new sub-page in Notion."""
-    return create_page(title, content, parent_id)
+    return create_page(title, content, parent_id, wing, room, hall, session_id, agent_name, harness_name)
 
-def update_page(page_id: str, title: str, content: str, type: str = "paragraph", language: str = "plain text") -> str:
-    """
-    Appends content to a specific Notion page.
-
-    Args:
-        page_id: The ID of the Notion page to update.
-        title: The heading for the new section.
-        content: The text content to append.
-        type: The type of block ('paragraph', 'bulleted_list_item', 'code', or 'table').
-        language: The language for code blocks (e.g., 'mermaid', 'python'). Defaults to 'plain text'.
-    """
-    # 1. Save to internal memory (Spy)
+def update_page(
+    page_id: str,
+    title: str,
+    content: str,
+    type: str = "paragraph",
+    language: str = "plain text",
+    wing: str = "default",
+    room: str = "general",
+    hall: str = "notion_sync",
+    session_id: str | None = None,
+    agent_name: str | None = None,
+    harness_name: str | None = None
+) -> str:
+    """Appends content to a specific Notion page."""
     log_content = f"Updated Page {page_id} with section '{title}'. Content: {content[:100]}..."
-    meta = {
-        "type": "update_page",
-        "page_id": page_id,
-        "section_title": title,
-        "timestamp": datetime.now().isoformat()
-    }
-    _save_to_db(log_content, meta)
+    active_session_id = None
+    if agent_name or harness_name:
+        active_session_id = ensure_session(session_id, agent_name, harness_name)
+    _save_to_db(log_content, {"type": "update_page", "page_id": page_id, "section_title": title}, wing, room, hall, active_session_id)
 
     # Validate type
     if type not in ["paragraph", "bulleted_list_item", "code", "table"]:
@@ -306,44 +572,68 @@ def update_page(page_id: str, title: str, content: str, type: str = "paragraph",
 
     try:
         notion.blocks.children.append(block_id=page_id, children=children)
+        if agent_name or harness_name:
+            add_notion_page_comment(page_id, agent_name, harness_name)
         return f"Successfully updated page {page_id}: {title}"
     except Exception as e:
         return f"Error updating page: {str(e)}"
 
 @mcp.tool(name="update_page")
-def tool_update_page(page_id: str, title: str, content: str, type: str = "paragraph", language: str = "plain text") -> str:
+def tool_update_page(
+    page_id: str,
+    title: str,
+    content: str,
+    type: str = "paragraph",
+    language: str = "plain text",
+    wing: str = "default",
+    room: str = "general",
+    hall: str = "notion_sync",
+    session_id: str | None = None,
+    agent_name: str | None = None,
+    harness_name: str | None = None
+) -> str:
     """Appends content to a specific Notion page."""
-    return update_page(page_id, title, content, type, language)
+    return update_page(page_id, title, content, type, language, wing, room, hall, session_id, agent_name, harness_name)
 
-def log_to_notion(title: str, content: str, type: str = "paragraph", language: str = "plain text", page_id: str = None) -> str:
-    """
-    Logs an entry to a Notion page.
-
-    Args:
-        title: The heading for the new section.
-        content: The text content.
-        type: Block type.
-        language: Code language (if type is code).
-        page_id: Optional ID of the target page. Defaults to NOTION_PAGE_ID env var if set.
-    """
+def log_to_notion(
+    title: str,
+    content: str,
+    type: str = "paragraph",
+    language: str = "plain text",
+    page_id: str = None,
+    wing: str = "default",
+    room: str = "general",
+    hall: str = "notion_sync",
+    session_id: str | None = None,
+    agent_name: str | None = None,
+    harness_name: str | None = None
+) -> str:
+    """Logs an entry to a Notion page."""
     target_page = page_id or os.getenv("NOTION_PAGE_ID")
     if not target_page:
         return "Error: No page_id provided and NOTION_PAGE_ID not set."
 
-    return update_page(target_page, title, content, type, language)
+    return update_page(target_page, title, content, type, language, wing, room, hall, session_id, agent_name, harness_name)
 
 @mcp.tool(name="log_to_notion")
-def tool_log_to_notion(title: str, content: str, type: str = "paragraph", language: str = "plain text", page_id: str = None) -> str:
+def tool_log_to_notion(
+    title: str,
+    content: str,
+    type: str = "paragraph",
+    language: str = "plain text",
+    page_id: str = None,
+    wing: str = "default",
+    room: str = "general",
+    hall: str = "notion_sync",
+    session_id: str | None = None,
+    agent_name: str | None = None,
+    harness_name: str | None = None
+) -> str:
     """Logs an entry to a Notion page."""
-    return log_to_notion(title, content, type, language, page_id)
+    return log_to_notion(title, content, type, language, page_id, wing, room, hall, session_id, agent_name, harness_name)
 
 def list_sub_pages(parent_id: str = None) -> str:
-    """
-    Lists sub-pages under a parent page.
-
-    Args:
-        parent_id: The ID of the parent page. Defaults to the configured NOTION_PAGE_ID.
-    """
+    """Lists sub-pages under a parent page."""
     if not parent_id:
         parent_id = os.getenv("NOTION_PAGE_ID")
         if not parent_id:
@@ -369,10 +659,7 @@ def tool_list_sub_pages(parent_id: str = None) -> str:
     return list_sub_pages(parent_id)
 
 def read_page_content(page_id: str) -> str:
-    """
-    Reads the content of a Notion page.
-    Returns a simplified text representation.
-    """
+    """Reads the content of a Notion page and returns a simplified text representation."""
     try:
         response = notion.blocks.children.list(block_id=page_id)
         content = []
@@ -426,57 +713,45 @@ def tool_send_alert(message: str) -> str:
     return send_alert(message)
 
 def search_memory(query: str) -> str:
-    """
-    Searches the agent's internal memory using Semantic-like Keyword Search (FTS).
-
-    Args:
-        query: The search term to look for. Supports partial matches.
-    """
+    """Searches the agent's internal memory using Semantic-like Keyword Search (FTS)."""
     try:
         conn = sqlite3.connect(DB_PATH)
         c = conn.cursor()
-
-        # Use FTS MATCH operator for ranking
-        # We sanitize query to avoid syntax errors with FTS operators if user types weird chars
         safe_query = re.sub(r'[^a-zA-Z0-9\s]', '', query)
 
         try:
             c.execute("""
-                SELECT content, metadata FROM memory_index
-                WHERE memory_index MATCH ?
-                ORDER BY rank
+                SELECT m.content, m.metadata, m.created_at, m.wing, m.room, m.hall 
+                FROM memories m
+                JOIN memories_fts f ON m.rowid = f.rowid
+                WHERE f.content MATCH ?
                 LIMIT 10
-            """, (safe_query,))
+            """, (f"{safe_query}*",))
             results = c.fetchall()
-        except sqlite3.OperationalError as e:
-            # Fallback to LIKE if MATCH fails (e.g. FTS5 not available)
-            if "no such column" in str(e) or "syntax error" in str(e):
+        except Exception:
+            try:
                 c.execute("""
-                    SELECT content, metadata FROM memory_index
+                    SELECT content, metadata, created_at, wing, room, hall 
+                    FROM memories
                     WHERE content LIKE ?
-                    ORDER BY rowid DESC
                     LIMIT 10
                 """, (f"%{safe_query}%",))
                 results = c.fetchall()
-            else:
-                raise e
+            except Exception as e:
+                # Compatibility fallback for old tests
+                c.execute("""
+                    SELECT content, metadata FROM memory_index
+                    WHERE content LIKE ?
+                    LIMIT 10
+                """, (f"%{safe_query}%",))
+                results = c.fetchall()
 
         conn.close()
 
         if not results:
             return "No matching memories found."
 
-        formatted = []
-        for r in results:
-            content = r[0]
-            try:
-                meta = json.loads(r[1])
-                timestamp = meta.get("timestamp", "")
-                prefix = f"[{timestamp}] " if timestamp else ""
-                formatted.append(f"- {prefix}{content}")
-            except:
-                formatted.append(f"- {content}")
-
+        formatted = [format_memory_row(r) for r in results]
         return "\n".join(formatted)
     except Exception as e:
         return f"Error searching memory: {str(e)}"
@@ -487,31 +762,29 @@ def tool_search_memory(query: str) -> str:
     return search_memory(query)
 
 def get_recent_memories(limit: int = 5) -> str:
-    """
-    Retrieves the most recent memories.
-    """
+    """Retrieves the most recent memories."""
     try:
         conn = sqlite3.connect(DB_PATH)
         c = conn.cursor()
-        # FTS tables don't have default ROWID optimization in all versions,
-        # but usually 'docid' or 'rowid' exists.
-        c.execute("SELECT content, metadata FROM memory_index ORDER BY rowid DESC LIMIT ?", (limit,))
-        results = c.fetchall()
+        try:
+            c.execute("""
+                SELECT content, metadata, created_at, wing, room, hall 
+                FROM memories 
+                ORDER BY created_at DESC 
+                LIMIT ?
+            """, (limit,))
+            results = c.fetchall()
+        except Exception:
+            # Compatibility fallback for old tests
+            c.execute("SELECT content, metadata FROM memory_index ORDER BY docid DESC LIMIT ?", (limit,))
+            results = c.fetchall()
+
         conn.close()
 
         if not results:
             return "No memories found."
 
-        formatted = []
-        for r in results:
-            content = r[0]
-            try:
-                meta = json.loads(r[1])
-                kind = meta.get("type", "memory").upper()
-                formatted.append(f"- [{kind}] {content}")
-            except:
-                formatted.append(f"- {content}")
-
+        formatted = [format_memory_row(r) for r in results]
         return "\n".join(formatted)
     except Exception as e:
         return f"Error retrieving recent memories: {str(e)}"
@@ -522,9 +795,7 @@ def tool_get_recent_memories(limit: int = 5) -> str:
     return get_recent_memories(limit)
 
 def list_databases() -> str:
-    """
-    Lists all databases shared with the integration.
-    """
+    """Lists all databases shared with the integration."""
     try:
         response = notion.search(filter={"value": "database", "property": "object"})
         dbs = []
@@ -548,13 +819,7 @@ def tool_list_databases() -> str:
     return list_databases()
 
 def query_database(database_id: str, query_filter: str = None) -> str:
-    """
-    Queries a database and returns its items.
-
-    Args:
-        database_id: The ID of the database to query.
-        query_filter: Optional JSON string for Notion filter object.
-    """
+    """Queries a database and returns its items."""
     try:
         kwargs = {"database_id": database_id}
         if query_filter:
@@ -567,7 +832,6 @@ def query_database(database_id: str, query_filter: str = None) -> str:
         response = notion.databases.query(**kwargs)
         items = []
         for page in response.get("results", []):
-            # Try to find a title property
             title = "Untitled"
             props = page.get("properties", {})
             for name, prop in props.items():
@@ -592,9 +856,7 @@ def tool_query_database(database_id: str, query_filter: str = None) -> str:
     return query_database(database_id, query_filter)
 
 def delete_block(block_id: str) -> str:
-    """
-    Deletes (archives) a block or page.
-    """
+    """Deletes (archives) a block or page."""
     try:
         notion.blocks.delete(block_id=block_id)
         return f"Successfully deleted block {block_id}"
@@ -606,12 +868,231 @@ def tool_delete_block(block_id: str) -> str:
     """Deletes (archives) a block or page."""
     return delete_block(block_id)
 
+class DashboardHandler(BaseHTTPRequestHandler):
+    def log_message(self, format, *args):
+        pass
+
+    def do_GET(self):
+        url = urllib.parse.urlparse(self.path)
+        path = url.path
+        
+        if path in ["/", "/engram-notion", "/engram-notion/"]:
+            self.send_response(200)
+            self.send_header("Content-Type", "text/html")
+            self.end_headers()
+            self.wfile.write(DASHBOARD_HTML.encode("utf-8"))
+            return
+            
+        if path in ["/health", "/engram-notion/health"]:
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json")
+            self.end_headers()
+            self.wfile.write(json.dumps({"status": "ok", "name": "engram-notion-mcp"}).encode("utf-8"))
+            return
+            
+        if path == "/api/metrics":
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json")
+            self.end_headers()
+            
+            metrics = {"total_memories": 0, "total_nodes": 0, "total_edges": 0, "active_sessions": 0}
+            try:
+                conn = sqlite3.connect(str(DB_PATH))
+                c = conn.cursor()
+                c.execute("SELECT COUNT(*) FROM memories")
+                metrics["total_memories"] = c.fetchone()[0]
+                c.execute("SELECT COUNT(*) FROM nodes")
+                metrics["total_nodes"] = c.fetchone()[0]
+                c.execute("SELECT COUNT(*) FROM edges")
+                metrics["total_edges"] = c.fetchone()[0]
+                c.execute("SELECT COUNT(*) FROM sessions")
+                metrics["active_sessions"] = c.fetchone()[0]
+                conn.close()
+            except Exception:
+                pass
+                
+            self.wfile.write(json.dumps(metrics).encode("utf-8"))
+            return
+            
+        if path == "/api/graph":
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json")
+            self.end_headers()
+            
+            nodes_list = []
+            links_list = []
+            try:
+                conn = sqlite3.connect(str(DB_PATH))
+                c = conn.cursor()
+                c.execute("SELECT id, label, type FROM nodes")
+                for r in c.fetchall():
+                    nodes_list.append({"id": r[0], "label": r[1], "type": r[2]})
+                c.execute("SELECT id, source, target, relation_type FROM edges")
+                for r in c.fetchall():
+                    links_list.append({"id": r[0], "source": r[1], "target": r[2], "relation_type": r[3]})
+                conn.close()
+            except Exception:
+                pass
+                
+            self.wfile.write(json.dumps({"nodes": nodes_list, "links": links_list}).encode("utf-8"))
+            return
+            
+        if path == "/api/memories":
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json")
+            self.end_headers()
+            
+            query_params = urllib.parse.parse_qs(url.query)
+            q = query_params.get("q", [""])[0]
+            
+            mems = []
+            try:
+                conn = sqlite3.connect(str(DB_PATH))
+                c = conn.cursor()
+                if q:
+                    safe_q = re.sub(r'[^a-zA-Z0-9\s]', '', q)
+                    c.execute("""
+                        SELECT m.id, m.content, m.wing, m.room, m.hall, m.created_at, s.agent_name, s.harness_name
+                        FROM memories m
+                        JOIN memories_fts f ON m.rowid = f.rowid
+                        LEFT JOIN sessions s ON m.session_id = s.id
+                        WHERE f.content MATCH ?
+                        ORDER BY m.created_at DESC
+                    """, (f"{safe_q}*",))
+                else:
+                    c.execute("""
+                        SELECT m.id, m.content, m.wing, m.room, m.hall, m.created_at, s.agent_name, s.harness_name
+                        FROM memories m
+                        LEFT JOIN sessions s ON m.session_id = s.id
+                        ORDER BY m.created_at DESC
+                    """)
+                for r in c.fetchall():
+                    mems.append({
+                        "id": r[0],
+                        "content": r[1],
+                        "wing": r[2],
+                        "room": r[3],
+                        "hall": r[4],
+                        "created_at": r[5],
+                        "agent_name": r[6],
+                        "harness_name": r[7]
+                    })
+                conn.close()
+            except Exception:
+                pass
+                
+            self.wfile.write(json.dumps(mems).encode("utf-8"))
+            return
+
+        self.send_response(404)
+        self.end_headers()
+        self.wfile.write(b"Not Found")
+
+    def do_POST(self):
+        url = urllib.parse.urlparse(self.path)
+        path = url.path
+        
+        if path == "/api/memories/correct":
+            content_length = int(self.headers.get('Content-Length', 0))
+            post_data = self.rfile.read(content_length)
+            success = False
+            try:
+                body = json.loads(post_data.decode("utf-8"))
+                action = body.get("action")
+                mem_id = body.get("id")
+                content = body.get("content")
+                
+                conn = sqlite3.connect(str(DB_PATH))
+                c = conn.cursor()
+                if action == "edit" and mem_id and content:
+                    c.execute("UPDATE memories SET content = ? WHERE id = ?", (content, mem_id))
+                    success = True
+                elif action == "delete" and mem_id:
+                    c.execute("DELETE FROM memories WHERE id = ?", (mem_id,))
+                    success = True
+                conn.commit()
+                conn.close()
+            except Exception:
+                pass
+                
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json")
+            self.end_headers()
+            self.wfile.write(json.dumps({"success": success}).encode("utf-8"))
+            return
+            
+        if path == "/api/compaction":
+            success = False
+            try:
+                conn = sqlite3.connect(str(DB_PATH))
+                c = conn.cursor()
+                c.execute("""
+                    SELECT content, MIN(id), COUNT(*)
+                    FROM memories
+                    GROUP BY content
+                    HAVING COUNT(*) > 1
+                """)
+                duplicates = c.fetchall()
+                for dup in duplicates:
+                    c.execute("DELETE FROM memories WHERE content = ? AND id != ?", (dup[0], dup[1]))
+                conn.commit()
+                conn.close()
+                success = True
+            except Exception:
+                pass
+                
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json")
+            self.end_headers()
+            self.wfile.write(json.dumps({"success": success}).encode("utf-8"))
+            return
+
+        self.send_response(404)
+        self.end_headers()
+        self.wfile.write(b"Not Found")
+
+def start_web_server(default_port=3123):
+    try:
+        import urllib.request
+        with urllib.request.urlopen(f"http://localhost:{default_port}/health", timeout=1) as response:
+            if response.status == 200:
+                data = json.loads(response.read().decode("utf-8"))
+                if data.get("name") == "engram-notion-mcp":
+                    print(f"[engram-notion-mcp] Dashboard is already running on port {default_port}. Reusing existing web application.", file=sys.stderr)
+                    return
+    except Exception:
+        pass
+
+    class ThreadedHTTPServer(threading.Thread):
+        def __init__(self):
+            super().__init__()
+            self.daemon = True
+            self.port = default_port
+
+        def run(self):
+            while True:
+                try:
+                    server = HTTPServer(("localhost", self.port), DashboardHandler)
+                    print(f"[engram-notion-mcp] Dashboard running at http://localhost:{self.port}/", file=sys.stderr)
+                    server.serve_forever()
+                    break
+                except OSError as e:
+                    if e.errno == 98 or e.errno == 48:
+                        self.port += 1
+                    else:
+                        print(f"[engram-notion-mcp] Server error: {e}", file=sys.stderr)
+                        break
+
+    ThreadedHTTPServer().start()
+
 if __name__ == "__main__":
-    # Check for port argument to run in SSE mode
     import argparse
     parser = argparse.ArgumentParser()
     parser.add_argument("--port", type=int, help="Port to run the server on (SSE mode)")
     args = parser.parse_args()
+
+    # Start Web Dashboard background server
+    start_web_server()
 
     if args.port:
         mcp.run(transport="sse", port=args.port)
