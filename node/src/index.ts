@@ -1006,7 +1006,7 @@ const start_web_server = async (defaultPort: number = 3123) => {
 const server = new Server(
   {
     name: "engram-notion-mcp",
-    version: "0.2.0-rc.1",
+    version: "1.2.0-rc.1",
   },
   {
     capabilities: {

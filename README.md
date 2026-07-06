@@ -3,7 +3,7 @@
 **Engram Notion MCP** is a powerful Model Context Protocol (MCP) server that gives your AI agents a **permanent, semantic memory**. It seamlessly integrates with [Notion](https://notion.so) to store, retrieve, and organize information, turning your workspace into an intelligent knowledge base.
 
 > 🧠 **Why Engram?**
-> AI Agents often suffer from amnesia. Engram solves this by providing a persistent memory layer backed by Notion's robust database structure.
+> AI Agents often suffer from amnesia. Engram solves this by providing a persistent memory layer backed by Notion's robust database structure, combined with an interactive local SQLite memory dashboard.
 
 ---
 
@@ -12,26 +12,41 @@
 ### Notion Integration
 | Feature | Tool Name | Description |
 | :--- | :--- | :--- |
-| **Page Creation** | `create_page` | Create new pages with content. Auto-chunks large text to avoid limits. |
-| **Page Updates** | `update_page` | Append content to existing pages. Auto-chunks large text. |
+| **Page Creation** | `create_page` | Create new pages with content. Auto-chunks large text to avoid limits. Supports session logging. |
+| **Page Updates** | `update_page` | Append content to existing pages. Auto-chunks large text. Supports session logging. |
 | **Logging** | `log_to_notion` | Fast logging wrapper for appending notes/logs. |
 | **Reading** | `read_page_content` | Read and parse page content into Agent-friendly text. |
 | **Databases** | `list_databases` | detailed list of accessible databases. |
 | **Querying** | `query_database` | Query databases with filters to find specific items. |
 | **Organization** | `list_sub_pages` | List pages within a parent page. |
 | **Cleanup** | `delete_block` | Archive/Delete blocks or pages. |
+| **Page Comments** | — | Appends `"last edited by {agent-name}-using-{harness}"` page comments when tracking values are supplied. |
 
-### Semantic Memory (SQLite)
+### Semantic Memory & Knowledge Graph (SQLite)
 | Feature | Tool Name | Description |
 | :--- | :--- | :--- |
-| **Store Facts** | `remember_fact` | Saves key info to internal vector-like storage. |
-| **Search** | `search_memory` | Full-text search over stored memories. |
+| **Store Facts** | `remember_fact` | Saves facts to spatial layout memory (`wing`/`room`/`hall`) with session tracking. |
+| **Store Relations** | `remember_relation` | Saves relationship predicate links between concepts in the knowledge graph. |
+| **Search** | `search_memory` | Full-text search (FTS) over stored memories. |
 | **Recall** | `get_recent_memories`| Retrieve the latest context/facts. |
 
 ### Operations
 | Feature | Tool Name | Description |
 | :--- | :--- | :--- |
 | **Alerts** | `send_alert` | Send push notifications via Telegram. |
+
+---
+
+## 📊 Interactive Memory Dashboard
+
+Whenever the MCP server starts up, it automatically spins up a local web application hosted on `http://localhost:3123/` (with automatic incremental port fallback if the port is in use).
+
+### Key Features:
+- **D3.js Force-Directed Graph**: Explore your agent's structured knowledge graph showing entities and their relationships.
+- **Search Timeline**: Real-time keyword search (FTS) through stored facts, created pages, and updates.
+- **Metrics Stats**: Instantly track your total memories, graph nodes, graph edges, and active sessions.
+- **"Dream-Correction" Workspace**: Edit or delete memories directly to fix hallucinations, trigger manual database compaction, and enable weekly review reminders in local storage.
+- **Port Reuse**: If a server is already running the dashboard on the port, other newly started servers will automatically redirect to the running dashboard to avoid spawning duplicate background HTTP servers.
 
 ---
 
