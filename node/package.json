@@ -1,59 +1,21 @@
 {
-  "name": "engram-notion-mcp",
-  "version": "1.2.0-rc.2",
-  "description": "Bun implementation of the Engram Notion MCP server",
-  "main": "src/index.ts",
-  "type": "module",
-  "keywords": [
-    "mcp",
-    "notion",
-    "ai",
-    "memory",
-    "agent",
-    "engram"
+  "name": "engram-notion-mcp-monorepo",
+  "private": true,
+  "workspaces": [
+    "mcp-server",
+    "mcp-ui"
   ],
-  "author": "Shubham Kumar",
-  "license": "MIT",
-  "repository": {
-    "type": "git",
-    "url": "https://github.com/shubhkumar-91/engram-notion-mcp.git"
-  },
-  "publishConfig": {
-    "access": "public",
-    "registry": "https://registry.npmjs.org"
-  },
-  "config": {
-    "release": "patch",
-    "preid": "rc",
-    "tagVersionPrefix": "REL-"
-  },
   "scripts": {
-    "start": "bun run src/index.ts",
-    "get-version": "echo $npm_package_version",
-    "get-name": "echo ${npm_package_name}",
-    "prebuild": "rm -rf ./dist",
-    "build": "bun build ./src/index.ts --outfile ./dist/index.js --target node --external better-sqlite3",
-    "preremove-dependencies": "rm -f ./bun.lock ./package-lock.json",
-    "remove-dependencies": "rm -rf ./node_modules",
-    "postremove-dependencies": "bun install",
-    "release": "bun run scripts/release.ts"
-  },
-  "dependencies": {
-    "@modelcontextprotocol/sdk": "^1.29.0",
-    "@notionhq/client": "^2.3.0",
-    "dotenv": "^16.6.1",
-    "marked": "^17.0.1"
-  },
-  "optionalDependencies": {
-    "better-sqlite3": "^11.10.0"
-  },
-  "devDependencies": {
-    "@types/better-sqlite3": "^7.6.13",
-    "@types/marked": "^6.0.0",
-    "bun-types": "^1.3.14",
-    "typescript": "^5.9.3"
-  },
-  "bin": {
-    "engram-notion-mcp": "dist/index.js"
+    "ui:dev": "bun --cwd mcp-ui dev",
+    "ui:build": "bun --cwd mcp-ui build",
+    "server:start": "bun --filter mcp-server start",
+    "server:build": "bun --filter mcp-server build",
+    "start": "bun --parallel --filter '*' run start",
+    "build": "bun --filter mcp-server build",
+    "dev": "bun --parallel --filter '*' run dev",
+    "predelete-dependencies": "rm -f ./bun.lock ./package-lock.json",
+    "delete-dependencies": "rm -rf ./node_modules",
+    "prerefresh-dependencies": "bun run delete-dependencies",
+    "refresh-dependencies": "bun --parallel --filter '*' install"
   }
 }

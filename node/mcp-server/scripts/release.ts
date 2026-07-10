@@ -3,7 +3,7 @@ import { join } from "path";
 
 // 1. Load configuration: Env > package.json > Defaults
 const pkgPath = join(import.meta.dir, "../package.json");
-const pyPath = join(import.meta.dir, "../../python/pyproject.toml");
+const pyPath = join(import.meta.dir, "../../../python/pyproject.toml");
 
 const pkg = await Bun.file(pkgPath).json();
 

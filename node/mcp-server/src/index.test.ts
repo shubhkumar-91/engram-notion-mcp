@@ -1,4 +1,4 @@
-import { expect, test, describe, spyOn, mock } from "bun:test";
+import { expect, test, describe, spyOn, mock, beforeAll } from "bun:test";
 import { tools, notion, dbAdapter } from "./index.ts";
 
 process.env.NOTION_PAGE_ID = "test-page-id";
@@ -200,5 +200,36 @@ describe("Memory Tools", () => {
     expect(result).toBe("Remembered: The sky is blue");
 
     querySpy.mockRestore();
+  });
+});
+
+describe("HTTP Dashboard Server", () => {
+  beforeAll(async () => {
+    // Wait for the server to finish binding to the port
+    await new Promise(resolve => setTimeout(resolve, 150));
+  });
+
+  test("should respond to /health", async () => {
+    const res = await fetch("http://localhost:3123/health");
+    expect(res.status).toBe(200);
+    const data = await res.json();
+    expect(data.status).toBe("ok");
+    expect(data.name).toBe("engram-notion-mcp");
+  });
+
+  test("should respond to /api/metrics", async () => {
+    const res = await fetch("http://localhost:3123/api/metrics");
+    expect(res.status).toBe(200);
+    const data = await res.json();
+    expect(data.total_memories).toBeDefined();
+    expect(data.total_nodes).toBeDefined();
+    expect(data.total_edges).toBeDefined();
+  });
+
+  test("should fall back to SPA index.html for unknown routes", async () => {
+    const res = await fetch("http://localhost:3123/random-route");
+    expect(res.status).toBe(200);
+    const text = await res.text();
+    expect(text).toContain("Engram Notion MCP Dashboard");
   });
 });

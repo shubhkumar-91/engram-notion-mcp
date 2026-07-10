@@ -30,17 +30,20 @@ MANIFEST
 # Only exists if Bazel was run
 /bazel-out
 /target
-*/node_modules
+**/node_modules
 /node_modules
 /typings
+**/public
 package-lock.json
 bun.lock
 uv.lock
 .npmrc
 
+# Markdown
+*.md
+!README.md
 python/README.md
 node/README.md
-
 
 # Virtual Environment
 venv/

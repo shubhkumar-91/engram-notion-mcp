@@ -1,0 +1,28 @@
+{
+  "name": "engram-mcp-ui",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "get-version": "echo $npm_package_version",
+    "get-name": "echo ${npm_package_name}",
+    "start": "vite",
+    "dev": "vite",
+    "build": "vite build",
+    "refresh-dependencies": "bun --cwd ../ run delete-dependencies",
+    "postrefresh-dependencies": "bun install"
+  },
+  "dependencies": {
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0",
+    "d3": "^7.9.0",
+    "dexie": "^4.0.0"
+  },
+  "devDependencies": {
+    "vite": "^6.0.0",
+    "tailwindcss": "^4.0.0",
+    "@tailwindcss/vite": "^4.0.0",
+    "@vitejs/plugin-react": "^4.3.4",
+    "@types/react": "^19.0.0",
+    "@types/react-dom": "^19.0.0"
+  }
+}

@@ -891,31 +891,48 @@ const start_web_server = async (defaultPort: number = 3123) => {
           port: port,
           async fetch(request: any) {
             const url = new URL(request.url);
-            const path = url.pathname;
+            const pathName = url.pathname;
             
-            if (path === "/" || path === "/engram-notion" || path === "/engram-notion/") {
-              return new Response(DASHBOARD_HTML, { headers: { "Content-Type": "text/html" } });
-            }
-            if (path === "/health" || path === "/engram-notion/health") {
+            if (pathName === "/health" || pathName === "/engram-notion/health") {
               return Response.json({ status: "ok", name: "engram-notion-mcp" });
             }
-            if (path === "/api/metrics") {
+            if (pathName === "/api/metrics") {
               return Response.json(getMetrics());
             }
-            if (path === "/api/graph") {
+            if (pathName === "/api/graph") {
               return Response.json(getGraphData());
             }
-            if (path === "/api/memories") {
+            if (pathName === "/api/memories") {
               const q = url.searchParams.get("q") || "";
               return Response.json(getMemories(q));
             }
-            if (path === "/api/memories/correct" && request.method === "POST") {
+            if (pathName === "/api/memories/correct" && request.method === "POST") {
               const body = await request.json();
               return Response.json({ success: handleCorrection(body) });
             }
-            if (path === "/api/compaction" && request.method === "POST") {
+            if (pathName === "/api/compaction" && request.method === "POST") {
               return Response.json({ success: handleCompaction() });
             }
+
+            // Fallback to static assets served from public/
+            const publicDir = path.join(import.meta.dir, "../public");
+            const cleanPath = pathName === "/" || pathName === "/engram-notion" || pathName === "/engram-notion/" ? "index.html" : pathName;
+            const assetFile = Bun.file(path.join(publicDir, cleanPath));
+            if (await assetFile.exists()) {
+              return new Response(assetFile);
+            }
+            
+            // Single Page Application client-side router support
+            const indexFile = Bun.file(path.join(publicDir, "index.html"));
+            if (await indexFile.exists()) {
+              return new Response(indexFile);
+            }
+
+            // Legacy fallback if public/index.html is not compiled yet
+            if (pathName === "/" || pathName === "/engram-notion" || pathName === "/engram-notion/") {
+              return new Response(DASHBOARD_HTML, { headers: { "Content-Type": "text/html" } });
+            }
+
             return new Response("Not Found", { status: 404 });
           }
         });
@@ -936,36 +953,31 @@ const start_web_server = async (defaultPort: number = 3123) => {
     
     const serverInstance = http.createServer(async (req: any, res: any) => {
       const url = new URL(req.url, `http://localhost:${port}`);
-      const path = url.pathname;
+      const pathName = url.pathname;
       
       const sendJson = (obj: any) => {
         res.writeHead(200, { "Content-Type": "application/json" });
         res.end(JSON.stringify(obj));
       };
       
-      if (path === "/" || path === "/engram-notion" || path === "/engram-notion/") {
-        res.writeHead(200, { "Content-Type": "text/html" });
-        res.end(DASHBOARD_HTML);
-        return;
-      }
-      if (path === "/health" || path === "/engram-notion/health") {
+      if (pathName === "/health" || pathName === "/engram-notion/health") {
         sendJson({ status: "ok", name: "engram-notion-mcp" });
         return;
       }
-      if (path === "/api/metrics") {
+      if (pathName === "/api/metrics") {
         sendJson(getMetrics());
         return;
       }
-      if (path === "/api/graph") {
+      if (pathName === "/api/graph") {
         sendJson(getGraphData());
         return;
       }
-      if (path === "/api/memories") {
+      if (pathName === "/api/memories") {
         const q = url.searchParams.get("q") || "";
         sendJson(getMemories(q));
         return;
       }
-      if (path === "/api/memories/correct" && req.method === "POST") {
+      if (pathName === "/api/memories/correct" && req.method === "POST") {
         let body = "";
         req.on("data", (chunk: any) => { body += chunk; });
         req.on("end", () => {
@@ -978,11 +990,48 @@ const start_web_server = async (defaultPort: number = 3123) => {
         });
         return;
       }
-      if (path === "/api/compaction" && req.method === "POST") {
+      if (pathName === "/api/compaction" && req.method === "POST") {
         sendJson({ success: handleCompaction() });
         return;
       }
-      
+
+      // Serve static files
+      const publicDir = path.join(__dirname, "../public");
+      const cleanPath = pathName === "/" || pathName === "/engram-notion" || pathName === "/engram-notion/" ? "index.html" : pathName;
+      const targetFilePath = path.join(publicDir, cleanPath);
+
+      if (fs.existsSync(targetFilePath) && fs.statSync(targetFilePath).isFile()) {
+        const ext = path.extname(targetFilePath);
+        let contentType = "text/plain";
+        if (ext === ".html") contentType = "text/html";
+        else if (ext === ".js") contentType = "application/javascript";
+        else if (ext === ".css") contentType = "text/css";
+        else if (ext === ".json") contentType = "application/json";
+        else if (ext === ".png") contentType = "image/png";
+        else if (ext === ".jpg" || ext === ".jpeg") contentType = "image/jpeg";
+        else if (ext === ".svg") contentType = "image/svg+xml";
+        else if (ext === ".ico") contentType = "image/x-icon";
+        
+        res.writeHead(200, { "Content-Type": contentType });
+        res.end(fs.readFileSync(targetFilePath));
+        return;
+      }
+
+      // SPA client routing fallback to index.html
+      const indexFilePath = path.join(publicDir, "index.html");
+      if (fs.existsSync(indexFilePath) && fs.statSync(indexFilePath).isFile()) {
+        res.writeHead(200, { "Content-Type": "text/html" });
+        res.end(fs.readFileSync(indexFilePath));
+        return;
+      }
+
+      // Legacy fallback if public/index.html is not compiled yet
+      if (pathName === "/" || pathName === "/engram-notion" || pathName === "/engram-notion/") {
+        res.writeHead(200, { "Content-Type": "text/html" });
+        res.end(DASHBOARD_HTML);
+        return;
+      }
+
       res.writeHead(404);
       res.end("Not Found");
     });
