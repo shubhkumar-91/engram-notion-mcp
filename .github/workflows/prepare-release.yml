@@ -55,7 +55,7 @@ jobs:
 
       - name: Bump Version & Sync
         working-directory: ./node
-        run: bun run release
+        run: bun --filter mcp-server run release
 
       - name: Push Changes
         run: git push --follow-tags
