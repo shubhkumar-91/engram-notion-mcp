@@ -39,3 +39,4 @@ Run these commands from the `./python/` directory:
 * **Dual Stack Consistency:** Any new feature (e.g. database schemas, Notion triggers, or API paths) must be implemented and tested in BOTH the Node/Bun and Python stacks to maintain feature parity.
 * **Release Flow:** Bumping versions in `node/mcp-server/package.json` must sync version strings to `python/pyproject.toml` (managed via `scripts/release.ts`).
 * **Stdout Restriction:** Standard output (`stdout`) is reserved for JSON-RPC MCP messages. All general logs and URLs must write to standard error (`stderr`).
+* **Git Restrictions Limit:** Do NOT run `git push` or `git merge` commands directly. Git staging (`git add`), committing (`git commit`), and branch switching/creation are permitted, but code pushes and merges must only be executed upon explicit user request.

@@ -22,3 +22,5 @@ This file overrides behavioral rules and sets workspace preferences for the Anti
   * For SQLite schema, triggers, and HTTP endpoints, see [architecture.md](file:///Users/sammy/workstation/workflow-ideas/better-notion-mcp/docs/knowledge-base/architecture.md).
   * For React SPA design, Web Workers, Dexie.js caches, and Roadmaps, see [vision.md](file:///Users/sammy/workstation/workflow-ideas/better-notion-mcp/docs/knowledge-base/vision.md).
 * **Stdout Restriction:** Ensure no logs or print statements target `stdout` in server files, as this breaks the MCP connection protocol. Route all status/dashboard info to `stderr`.
+* **Git Restrictions Limit:** You are STRICTLY forbidden from executing `git push` or `git merge` commands directly. Staging changes (`git add`), committing (`git commit`), and branch/worktree manipulation are permitted, but code pushes and merges must only be executed when explicitly requested by the user in the prompt or approved implementation plan.
+
