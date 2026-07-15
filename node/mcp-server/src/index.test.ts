@@ -177,7 +177,7 @@ describe("Notion Tools", () => {
   test("send_alert should send a telegram message", async () => {
     // Mock global fetch for Telegram
     const originalFetch = global.fetch;
-    global.fetch = mock(() => Promise.resolve({ ok: true } as any));
+    global.fetch = mock(() => Promise.resolve({ ok: true } as any)) as any;
 
     process.env.TELEGRAM_BOT_TOKEN = "token";
     process.env.TELEGRAM_CHAT_ID = "123";

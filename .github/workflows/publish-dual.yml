@@ -71,9 +71,9 @@ jobs:
           package-manager-cache: false  # never use caching in release builds
 
       - name: Publish NPM Package
-        working-directory: ./node
+        working-directory: ./node/mcp-server
         run: |
-          cp ../README.md README.md
+          cp ../../README.md README.md
           VERSION=$(node -p "require('./package.json').version")
           echo $VERSION
           if [[ $VERSION == *"-"* ]]; then

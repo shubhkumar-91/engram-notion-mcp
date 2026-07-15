@@ -8,10 +8,10 @@
   "scripts": {
     "ui:dev": "bun --cwd mcp-ui dev",
     "ui:build": "bun --cwd mcp-ui build",
-    "server:start": "bun --filter mcp-server start",
-    "server:build": "bun --filter mcp-server build",
+    "server:start": "bun --filter engram-notion-mcp start",
+    "server:build": "bun --filter engram-notion-mcp build",
     "start": "bun --parallel --filter '*' run start",
-    "build": "bun --filter mcp-server build",
+    "build": "bun run ui:build && bun --filter engram-notion-mcp build",
     "dev": "bun --parallel --filter '*' run dev",
     "predelete-dependencies": "rm -f ./bun.lock ./package-lock.json",
     "delete-dependencies": "rm -rf ./node_modules",
