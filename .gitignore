@@ -8,7 +8,8 @@ __pycache__/
 build/
 develop-eggs/
 dist/
-docs/
+docs/build/
+docs/_build/
 downloads/
 eggs/
 .eggs/
@@ -42,6 +43,10 @@ uv.lock
 # Markdown
 *.md
 !README.md
+!CLAUDE.md
+!CHANGELOG.md
+!**/docs/**/*.md
+!.agents/**/*.md
 python/README.md
 node/README.md
 
