@@ -47,6 +47,7 @@ uv.lock
 !CHANGELOG.md
 !**/docs/**/*.md
 !.agents/**/*.md
+!node/mcp-ui/design.md
 python/README.md
 node/README.md
 
