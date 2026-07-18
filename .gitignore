@@ -39,6 +39,8 @@ package-lock.json
 bun.lock
 uv.lock
 .npmrc
+diff.txt
+full_diff.txt
 
 # Markdown
 *.md
