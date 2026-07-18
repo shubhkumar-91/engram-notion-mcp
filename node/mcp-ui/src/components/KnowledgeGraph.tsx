@@ -369,7 +369,7 @@ export const KnowledgeGraph: React.FC = () => {
 
       <div className="w-full md:w-80 bg-[var(--panel-bg)] border border-[var(--panel-border)] rounded-2xl p-5 flex flex-col h-full space-y-4 backdrop-blur-md shadow-sm">
         <div>
-          <h3 className="text-sm font-bold text-[var(--text-main)]">Search Entities</h3>
+          <h3 className="text-sm font-normal text-[var(--text-main)]">Search Entities</h3>
           <input
             type="text"
             placeholder="Type filter e.g. Notion..."
@@ -378,17 +378,17 @@ export const KnowledgeGraph: React.FC = () => {
               setSearchQuery(e.target.value);
               draw();
             }}
-            className="w-full mt-2 bg-transparent border border-[var(--panel-border)] focus:border-[var(--accent-color)] outline-none px-3 py-2 rounded-lg text-sm text-[var(--text-main)] placeholder-[var(--text-muted)] transition-colors"
+            className="w-full mt-2 bg-transparent border border-[var(--panel-border)] focus:border-[var(--accent-color)] outline-none px-3 py-2 rounded-lg text-sm text-[var(--text-main)] placeholder-[var(--text-muted)] transition-colors font-normal"
           />
         </div>
 
-        <div className="flex-1 overflow-y-auto">
+        <div className="flex-1 overflow-y-auto font-normal">
           {hoverNodeState ? (
             <div className="space-y-3">
               <div className="flex justify-between items-start">
-                <span className="text-xs font-bold uppercase tracking-wider text-[var(--text-muted)] font-mono">Entity Details</span>
+                <span className="text-xs font-normal uppercase tracking-wider text-[var(--text-muted)] font-mono">Entity Details</span>
                 <span 
-                  className="px-2 py-0.5 rounded text-[10px] font-bold tracking-wide uppercase font-mono"
+                  className="px-2 py-0.5 rounded text-[10px] font-normal tracking-wide uppercase font-mono"
                   style={{
                     backgroundColor: `var(--node-${hoverNodeState.type}, var(--node-default))`,
                     color: '#fff',
@@ -398,10 +398,10 @@ export const KnowledgeGraph: React.FC = () => {
                   {hoverNodeState.type}
                 </span>
               </div>
-              <h4 className="text-base font-bold text-[var(--text-main)] leading-tight">{hoverNodeState.label}</h4>
+              <h4 className="text-base font-normal text-[var(--text-main)] leading-tight">{hoverNodeState.label}</h4>
               <hr className="border-[var(--panel-border)]" />
               <div className="space-y-2">
-                <span className="text-[10px] font-bold uppercase tracking-wider text-[var(--text-muted)] font-mono block">Node Connections</span>
+                <span className="text-[10px] font-normal uppercase tracking-wider text-[var(--text-muted)] font-mono block">Node Connections</span>
                 <div className="max-h-[220px] overflow-y-auto space-y-2 text-xs text-[var(--text-muted)]">
                   {graphDataRef.current.links
                     .filter(l => {
