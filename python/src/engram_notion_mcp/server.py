@@ -889,18 +889,12 @@ class DashboardHandler(BaseHTTPRequestHandler):
             try:
                 # Security check to prevent directory traversal
                 if target_file.is_relative_to(public_dir.resolve()) and target_file.is_file():
-                    self.send_response(200)
-                    suffix = target_file.suffix.lower()
-                    content_type = "text/plain"
-                    if suffix == ".html": content_type = "text/html"
-                    elif suffix == ".js": content_type = "application/javascript"
-                    elif suffix == ".css": content_type = "text/css"
-                    elif suffix == ".json": content_type = "application/json"
-                    elif suffix == ".png": content_type = "image/png"
-                    elif suffix == ".jpg" or suffix == ".jpeg": content_type = "image/jpeg"
-                    elif suffix == ".svg": content_type = "image/svg+xml"
-                    elif suffix == ".ico": content_type = "image/x-icon"
+                    import mimetypes
+                    content_type, _ = mimetypes.guess_type(str(target_file))
+                    if not content_type:
+                        content_type = "text/plain"
                     
+                    self.send_response(200)
                     self.send_header("Content-Type", content_type)
                     self.end_headers()
                     with open(target_file, "rb") as f:
