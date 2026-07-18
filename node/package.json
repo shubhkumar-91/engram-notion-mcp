@@ -6,16 +6,16 @@
     "mcp-ui"
   ],
   "scripts": {
-    "ui:dev": "bun --cwd mcp-ui dev",
-    "ui:build": "bun --cwd mcp-ui build",
-    "server:start": "bun --filter engram-notion-mcp start",
-    "server:build": "bun --filter engram-notion-mcp build",
-    "start": "bun --parallel --filter '*' run start",
-    "build": "bun run ui:build && bun --filter engram-notion-mcp build",
-    "dev": "bun --parallel --filter '*' run dev",
+    "ui:dev": "bun run --cwd mcp-ui dev",
+    "ui:build": "bun run --cwd mcp-ui build",
+    "server:start": "bun run --filter engram-notion-mcp start",
+    "server:build": "bun run --filter engram-notion-mcp build",
+    "start": "bun run --parallel --filter '*' start",
+    "build": "bun run ui:build && bun run --filter engram-notion-mcp build",
+    "dev": "bun run --parallel --filter '*' dev",
     "predelete-dependencies": "rm -f ./bun.lock ./package-lock.json",
     "delete-dependencies": "rm -rf ./node_modules",
     "prerefresh-dependencies": "bun run delete-dependencies",
-    "refresh-dependencies": "bun --parallel --filter '*' install"
+    "refresh-dependencies": "bun run --parallel --filter '*' install"
   }
 }

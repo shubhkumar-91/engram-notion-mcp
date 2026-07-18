@@ -55,7 +55,7 @@ jobs:
 
       - name: Bump Version & Sync
         working-directory: ./node
-        run: bun --filter mcp-server run release
+        run: bun --filter engram-notion-mcp run release
 
       - name: Push Changes
         run: git push --follow-tags

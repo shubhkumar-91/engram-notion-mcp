@@ -40,8 +40,8 @@
     "prebuild": "bun run build:ui:assets",
     "build": "bun build ./src/index.ts --outfile ./dist/index.js --target node --external better-sqlite3",
     "prebuild:ui:assets": "rm -rf ./dist",
-    "build:ui:assets": "bun --cwd ../mcp-ui run build",
-    "refresh-dependencies": "bun --cwd ../ run refresh-dependencies",
+    "build:ui:assets": "bun run --cwd ../mcp-ui build",
+    "refresh-dependencies": "bun run --cwd ../ refresh-dependencies",
     "release": "bun run scripts/release.ts"
   },
   "dependencies": {
