@@ -1277,7 +1277,8 @@ async function main() {
   await server.connect(transport);
   
   // Start Web Dashboard background server
-  start_web_server();
+  const portEnv = process.env.PORT ? parseInt(process.env.PORT, 10) : 3123;
+  start_web_server(portEnv);
 }
 
 main().catch((error) => {
