@@ -876,12 +876,56 @@ class DashboardHandler(BaseHTTPRequestHandler):
         url = urllib.parse.urlparse(self.path)
         path = url.path
         
-        if path in ["/", "/engram-notion", "/engram-notion/"]:
-            self.send_response(200)
-            self.send_header("Content-Type", "text/html")
-            self.end_headers()
-            self.wfile.write(DASHBOARD_HTML.encode("utf-8"))
-            return
+        # Static asset serving
+        public_dir = Path(__file__).parent / "public"
+        is_api = path.startswith("/api/") or path in ["/health", "/engram-notion/health"]
+        
+        if not is_api:
+            clean_path = path.lstrip('/')
+            if clean_path in ["", "engram-notion", "engram-notion/"]:
+                clean_path = "index.html"
+            
+            target_file = (public_dir / clean_path).resolve()
+            try:
+                # Security check to prevent directory traversal
+                if target_file.is_relative_to(public_dir.resolve()) and target_file.is_file():
+                    self.send_response(200)
+                    suffix = target_file.suffix.lower()
+                    content_type = "text/plain"
+                    if suffix == ".html": content_type = "text/html"
+                    elif suffix == ".js": content_type = "application/javascript"
+                    elif suffix == ".css": content_type = "text/css"
+                    elif suffix == ".json": content_type = "application/json"
+                    elif suffix == ".png": content_type = "image/png"
+                    elif suffix == ".jpg" or suffix == ".jpeg": content_type = "image/jpeg"
+                    elif suffix == ".svg": content_type = "image/svg+xml"
+                    elif suffix == ".ico": content_type = "image/x-icon"
+                    
+                    self.send_header("Content-Type", content_type)
+                    self.end_headers()
+                    with open(target_file, "rb") as f:
+                        self.wfile.write(f.read())
+                    return
+            except (ValueError, Exception):
+                pass
+                
+            # SPA routing fallback to index.html
+            index_file = public_dir / "index.html"
+            if index_file.is_file():
+                self.send_response(200)
+                self.send_header("Content-Type", "text/html")
+                self.end_headers()
+                with open(index_file, "rb") as f:
+                    self.wfile.write(f.read())
+                return
+                
+            # Legacy fallback if public/index.html is not compiled yet
+            if path in ["/", "/engram-notion", "/engram-notion/"]:
+                self.send_response(200)
+                self.send_header("Content-Type", "text/html")
+                self.end_headers()
+                self.wfile.write(DASHBOARD_HTML.encode("utf-8"))
+                return
             
         if path in ["/health", "/engram-notion/health"]:
             self.send_response(200)
