@@ -1,73 +1,128 @@
 import React, { useState, useEffect } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { DreamCorrection } from './components/DreamCorrection.tsx';
+import { KnowledgeGraph } from './components/KnowledgeGraph.tsx';
+
+type Mode = 'light' | 'dark' | 'system';
+type Theme = 'ethereal' | 'sunset' | 'neon';
 
 export default function App() {
   const [activeTab, setActiveTab] = useState<'graph' | 'triage'>('graph');
-  const [metrics, setMetrics] = useState({ total_memories: 0, total_nodes: 0, total_edges: 0, active_sessions: 0 });
+  const [mode, setMode] = useState<Mode>('light');
+  const [theme, setTheme] = useState<Theme>('ethereal');
+
+  // React Query for metrics
+  const { data: metrics = { total_memories: 0, total_nodes: 0, total_edges: 0, active_sessions: 0 } } = useQuery({
+    queryKey: ['metrics', activeTab],
+    queryFn: async () => {
+      const res = await fetch('/api/metrics');
+      if (!res.ok) throw new Error('Failed to fetch metrics');
+      return res.json();
+    },
+    retry: false
+  });
 
   useEffect(() => {
-    fetch('/api/metrics')
-      .then(res => res.json())
-      .then(data => setMetrics(data))
-      .catch(() => {});
-  }, []);
+    // Mode logic
+    let isDark = false;
+    if (mode === 'system') {
+      isDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+    } else if (mode === 'dark') {
+      isDark = true;
+    }
+    
+    if (isDark) {
+      document.documentElement.classList.add('dark');
+    } else {
+      document.documentElement.classList.remove('dark');
+    }
+
+    // Theme logic
+    document.documentElement.setAttribute('data-theme', theme);
+  }, [mode, theme]);
 
   return (
-    <div className="min-h-screen bg-[#0c0914] text-[#f0ecfa] flex flex-col font-sans">
-      <header className="p-4 bg-slate-950/80 border-b border-slate-900 flex justify-between items-center backdrop-blur-md">
-        <h1 className="text-lg font-bold tracking-tight text-indigo-400">Engram Notion Memory</h1>
-        <div className="flex space-x-2">
-          <button
-            onClick={() => setActiveTab('graph')}
-            className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
-              activeTab === 'graph' ? 'bg-indigo-600 text-white' : 'text-slate-400 hover:text-[#f0ecfa]'
-            }`}
-          >
-            Knowledge Graph
-          </button>
-          <button
-            onClick={() => setActiveTab('triage')}
-            className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
-              activeTab === 'triage' ? 'bg-indigo-600 text-white' : 'text-slate-400 hover:text-[#f0ecfa]'
-            }`}
-          >
-            Dream Correction
-          </button>
-        </div>
-      </header>
+    <>
+      <div className="mesh-bg">
+        <div className="mesh-blob mesh-blob-1"></div>
+        <div className="mesh-blob mesh-blob-2"></div>
+      </div>
+      <div className="min-h-screen flex flex-col font-sans relative z-10">
+        <header className="p-4 bg-[var(--panel-bg)] border-b border-[var(--panel-border)] flex justify-between items-center backdrop-blur-md shadow-sm">
+          <h1 className="text-lg font-normal tracking-tight text-[var(--accent-color)]">Engram Notion Memory</h1>
+          
+          <div className="flex items-center space-x-4">
+            <div className="flex space-x-2">
+              <select
+                value={mode}
+                onChange={(e) => setMode(e.target.value as Mode)}
+                className="bg-transparent border border-[var(--panel-border)] rounded-md text-sm p-1 text-[var(--text-main)] outline-none focus:border-[var(--accent-color)] transition-colors"
+              >
+                <option value="light">Light Mode</option>
+                <option value="dark">Dark Mode</option>
+                <option value="system">System</option>
+              </select>
 
-      <main className="flex-1 p-6 space-y-6 max-w-7xl mx-auto w-full">
-        {/* Metrics Bar */}
-        <section className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          <div className="p-4 bg-slate-900/40 border border-slate-800/80 rounded-xl">
-            <div className="text-xs text-slate-400">Total Memories</div>
-            <div className="text-2xl font-bold font-mono text-indigo-400 mt-1">{metrics.total_memories}</div>
-          </div>
-          <div className="p-4 bg-slate-900/40 border border-slate-800/80 rounded-xl">
-            <div className="text-xs text-slate-400">Entities (Nodes)</div>
-            <div className="text-2xl font-bold font-mono text-indigo-400 mt-1">{metrics.total_nodes}</div>
-          </div>
-          <div className="p-4 bg-slate-900/40 border border-slate-800/80 rounded-xl">
-            <div className="text-xs text-slate-400">Relations (Edges)</div>
-            <div className="text-2xl font-bold font-mono text-indigo-400 mt-1">{metrics.total_edges}</div>
-          </div>
-          <div className="p-4 bg-slate-900/40 border border-slate-800/80 rounded-xl">
-            <div className="text-xs text-slate-400">Active Sessions</div>
-            <div className="text-2xl font-bold font-mono text-indigo-400 mt-1">{metrics.active_sessions}</div>
-          </div>
-        </section>
+              <select
+                value={theme}
+                onChange={(e) => setTheme(e.target.value as Theme)}
+                className="bg-transparent border border-[var(--panel-border)] rounded-md text-sm p-1 text-[var(--text-main)] outline-none focus:border-[var(--accent-color)] transition-colors"
+              >
+                <option value="ethereal">Ethereal Pastel</option>
+                <option value="sunset">Sunset Glow</option>
+                <option value="neon">Neon Breeze</option>
+              </select>
+            </div>
 
-        {activeTab === 'graph' ? (
-          <section className="p-6 bg-slate-900/30 border border-slate-800/50 rounded-xl h-[500px] flex items-center justify-center">
-            <div className="text-center">
-              <div className="text-slate-400">Knowledge Graph View Canvas</div>
-              <div className="text-xs text-slate-500 mt-1">Calculations offloaded to D3 Web Worker</div>
+            <div className="flex space-x-2 bg-[var(--panel-bg)] p-1 rounded-lg border border-[var(--panel-border)] shadow-sm">
+              <button
+                onClick={() => setActiveTab('graph')}
+                className={`px-4 py-1.5 rounded-md text-sm font-medium transition-all ${
+                  activeTab === 'graph' ? 'bg-[var(--accent-color)] text-white shadow-sm' : 'text-[var(--text-muted)] hover:text-[var(--text-main)]'
+                }`}
+              >
+                Knowledge Graph
+              </button>
+              <button
+                onClick={() => setActiveTab('triage')}
+                className={`px-4 py-1.5 rounded-md text-sm font-medium transition-all ${
+                  activeTab === 'triage' ? 'bg-[var(--accent-color)] text-white shadow-sm' : 'text-[var(--text-muted)] hover:text-[var(--text-main)]'
+                }`}
+              >
+                Dream Correction
+              </button>
+            </div>
+          </div>
+        </header>
+
+        <main className="flex-1 p-6 space-y-6 max-w-7xl mx-auto w-full">
+          {/* Metrics Bar */}
+          <section className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <div className="p-4 bg-[var(--panel-bg)] border border-[var(--panel-border)] rounded-xl backdrop-blur-md shadow-sm">
+              <div className="text-xs text-[var(--text-muted)] font-normal">Total Memories</div>
+              <div className="text-2xl font-light text-[var(--accent-color)] mt-1">{metrics.total_memories}</div>
+            </div>
+            <div className="p-4 bg-[var(--panel-bg)] border border-[var(--panel-border)] rounded-xl backdrop-blur-md shadow-sm">
+              <div className="text-xs text-[var(--text-muted)] font-normal">Entities (Nodes)</div>
+              <div className="text-2xl font-light text-[var(--accent-color)] mt-1">{metrics.total_nodes}</div>
+            </div>
+            <div className="p-4 bg-[var(--panel-bg)] border border-[var(--panel-border)] rounded-xl backdrop-blur-md shadow-sm">
+              <div className="text-xs text-[var(--text-muted)] font-normal">Relations (Edges)</div>
+              <div className="text-2xl font-light text-[var(--accent-color)] mt-1">{metrics.total_edges}</div>
+            </div>
+            <div className="p-4 bg-[var(--panel-bg)] border border-[var(--panel-border)] rounded-xl backdrop-blur-md shadow-sm">
+              <div className="text-xs text-[var(--text-muted)] font-normal">Active Sessions</div>
+              <div className="text-2xl font-light text-[var(--accent-color)] mt-1">{metrics.active_sessions}</div>
             </div>
           </section>
-        ) : (
-          <DreamCorrection />
-        )}
-      </main>
-    </div>
+
+          {activeTab === 'graph' ? (
+            <KnowledgeGraph />
+          ) : (
+            <DreamCorrection />
+          )}
+        </main>
+      </div>
+    </>
   );
 }

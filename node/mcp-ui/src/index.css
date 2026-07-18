@@ -1,21 +1,117 @@
 @import "tailwindcss";
 
 :root {
+  /* Default: Light Mode + Ethereal Pastel */
+  --bg-color: #f8fafc;
+  --panel-bg: rgba(255, 255, 255, 0.7);
+  --panel-border: rgba(226, 232, 240, 0.6);
+  --panel-border-hover: rgba(203, 213, 225, 0.8);
+  --text-main: #0f172a;
+  --text-muted: #64748b;
+  --accent-color: #818cf8;
+  --accent-glow: rgba(129, 140, 248, 0.4);
+  --accent-secondary: #38bdf8;
+  --blob-1: #c7d2fe;
+  --blob-2: #bae6fd;
+
+  --node-page: var(--accent-secondary);
+  --node-concept: var(--accent-color);
+  --node-tool: #f472b6;
+  --node-default: var(--text-main);
+}
+
+.dark {
   --bg-color: #0c0914;
   --panel-bg: rgba(22, 17, 39, 0.7);
   --panel-border: rgba(97, 78, 172, 0.2);
   --panel-border-hover: rgba(147, 128, 222, 0.4);
   --text-main: #f0ecfa;
   --text-muted: #9f9aad;
-  --accent-color: #7c4dff;
-  --accent-glow: rgba(124, 77, 255, 0.4);
-  --accent-secondary: #00e5ff;
+  --blob-1: #312e81;
+  --blob-2: #082f49;
+}
+
+[data-theme="sunset"] {
+  --accent-color: #fb923c;
+  --accent-glow: rgba(251, 146, 60, 0.4);
+  --accent-secondary: #f43f5e;
+  --blob-1: #fed7aa;
+  --blob-2: #fecdd3;
+  --node-page: var(--accent-secondary);
+  --node-concept: var(--accent-color);
+  --node-tool: #fbbf24;
+}
+.dark[data-theme="sunset"] {
+  --blob-1: #7c2d12;
+  --blob-2: #881337;
+}
+
+[data-theme="neon"] {
+  --accent-color: #a855f7;
+  --accent-glow: rgba(168, 85, 247, 0.4);
+  --accent-secondary: #06b6d4;
+  --blob-1: #e9d5ff;
+  --blob-2: #cffafe;
+  --node-page: var(--accent-secondary);
+  --node-concept: var(--accent-color);
+  --node-tool: #ec4899;
+}
+.dark[data-theme="neon"] {
+  --blob-1: #4c1d95;
+  --blob-2: #164e63;
 }
 
 body {
   margin: 0;
-  font-family: 'Inter', sans-serif;
+  font-family: 'Plus Jakarta Sans', sans-serif;
   background-color: var(--bg-color);
   color: var(--text-main);
   overflow-x: hidden;
+  transition: background-color 0.3s ease, color 0.3s ease;
+}
+
+/* Mesh Gradient Blobs */
+.mesh-bg {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  z-index: -1;
+  overflow: hidden;
+  background: var(--bg-color);
+  transition: background-color 0.3s ease;
+}
+
+.mesh-blob {
+  position: absolute;
+  filter: blur(80px);
+  opacity: 0.6;
+  border-radius: 50%;
+  animation: float 20s infinite ease-in-out alternate;
+}
+
+.mesh-blob-1 {
+  background: var(--blob-1);
+  width: 600px;
+  height: 600px;
+  top: -100px;
+  left: -100px;
+  transition: background-color 0.5s ease;
+}
+
+.mesh-blob-2 {
+  background: var(--blob-2);
+  width: 500px;
+  height: 500px;
+  bottom: -100px;
+  right: -50px;
+  animation-delay: -10s;
+  transition: background-color 0.5s ease;
+}
+
+@keyframes float {
+  0% { transform: translate(0, 0) scale(1); }
+  50% { transform: translate(50px, 50px) scale(1.1); }
+  100% { transform: translate(-50px, 100px) scale(0.9); }
 }
