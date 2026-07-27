@@ -33,7 +33,14 @@ def get_default_db_path() -> Path:
     else:  # Linux/Unix
         base_path = home / ".engram" / "data"
 
-    return base_path / "agent_memory.db"
+    prod_path = base_path / "agent_memory.db"
+    mock_path = base_path / "agent_memory_mock.db"
+
+    if mock_path.exists():
+        if not prod_path.exists() or prod_path.stat().st_size == 0:
+            return mock_path
+
+    return prod_path
 
 # Get DB_PATH from env or usage defaults
 env_db_path = os.getenv("AGENT_MEMORY_PATH")
@@ -71,7 +78,23 @@ def init_db():
         prompt TEXT,
         response TEXT,
         created_at TEXT,
+        archived INTEGER DEFAULT 0,
         FOREIGN KEY(session_id) REFERENCES sessions(id)
+    )""")
+    try:
+        c.execute("ALTER TABLE memories ADD COLUMN archived INTEGER DEFAULT 0")
+    except Exception:
+        pass
+
+    c.execute("""CREATE TABLE IF NOT EXISTS archived_memories (
+        id TEXT PRIMARY KEY,
+        content TEXT,
+        metadata TEXT,
+        wing TEXT DEFAULT 'default',
+        room TEXT DEFAULT 'general',
+        hall TEXT DEFAULT 'facts',
+        archived_at TEXT,
+        created_at TEXT
     )""")
     c.execute("""CREATE TABLE IF NOT EXISTS nodes (
         id TEXT PRIMARY KEY,
@@ -95,6 +118,20 @@ def init_db():
         FOREIGN KEY(memory_id) REFERENCES memories(id),
         FOREIGN KEY(node_id) REFERENCES nodes(id)
     )""")
+
+    try:
+        c.execute("SELECT COUNT(*) FROM nodes")
+        count = c.fetchone()[0]
+        if count == 0:
+            c.execute("INSERT OR IGNORE INTO nodes (id, label, type) VALUES ('claude', 'Claude Desktop', 'concept')")
+            c.execute("INSERT OR IGNORE INTO nodes (id, label, type) VALUES ('mcp', 'Model Context Protocol', 'tool')")
+            c.execute("INSERT OR IGNORE INTO nodes (id, label, type) VALUES ('notion', 'Notion Integration', 'page')")
+            c.execute("INSERT OR IGNORE INTO nodes (id, label, type) VALUES ('sqlite', 'SQLite Vector Engine', 'concept')")
+            c.execute("INSERT OR IGNORE INTO edges (id, source, target, relation_type) VALUES ('edge_1', 'mcp', 'notion', 'integrates_with')")
+            c.execute("INSERT OR IGNORE INTO edges (id, source, target, relation_type) VALUES ('edge_2', 'claude', 'mcp', 'uses')")
+            c.execute("INSERT OR IGNORE INTO edges (id, source, target, relation_type) VALUES ('edge_3', 'mcp', 'sqlite', 'stores_to')")
+    except Exception:
+        pass
 
     try:
         c.execute("CREATE VIRTUAL TABLE IF NOT EXISTS memories_fts USING fts5(content, tokenize='porter')")
